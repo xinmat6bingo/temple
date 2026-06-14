@@ -456,18 +456,15 @@ function toggleAct(fid,bid,aid,checked){
   if(!f) return;
   const m=f.members.find(x=>x.bid===bid);
   if(!m) return;
-  if(checked){ if(!m.actIds.includes(aid)) m.actIds.push(aid); }
-  else { m.actIds=m.actIds.filter(x=>x!==aid); }
-  // update totals display
-  const acts=getActs();
-  const mTotal=m.actIds.reduce((s,id)=>{const a=acts.find(x=>x.id===id);return s+(a?a.price:0);},0);
-  const el=document.getElementById(`btotal-${bid}`);
-  if(el) el.textContent='$'+mTotal.toLocaleString();
-  // family total
-  const ft=f.members.reduce((s,mb)=>s+mb.actIds.reduce((ss,id)=>{const a=acts.find(x=>x.id===id);return ss+(a?a.price:0);},0),0);
-  const fel=document.getElementById(`ftotal-${fid}`);
-  if(fel) fel.textContent='合計：$'+ft.toLocaleString();
-  calcGrandTotal();
+  if(checked){
+    if(!m.actIds.includes(aid)) m.actIds.push(aid);
+    if(!m.douMap) m.douMap={};
+    if(!m.douMap[aid]) m.douMap[aid]=1;
+  } else {
+    m.actIds=m.actIds.filter(x=>x!==aid);
+    if(m.douMap) delete m.douMap[aid];
+  }
+  renderFamilies();
 }
 
 function renderFamilies(){
@@ -841,13 +838,21 @@ function saveActivities(){
   const acts=getActs();
   document.querySelectorAll('#act-editor > div').forEach((row,i)=>{
     if(!acts[i])return;
-    acts[i].no=row.querySelector('[data-f=no]').value;
-    acts[i].date=row.querySelector('[data-f=date]').value;
-    acts[i].name=row.querySelector('[data-f=name]').value;
-    acts[i].content=row.querySelector('[data-f=content]').value;
-    const douStr=row.querySelector('[data-f=dou]').value.trim();
-    acts[i].dou=douStr?douStr.split(/[,，、]+/).map(x=>x.trim()).filter(Boolean):[];
-    acts[i].price=parseInt(row.querySelector('[data-f=price]').value)||0;
+    const noEl=row.querySelector('[data-f=no]');
+    if(noEl) acts[i].no=noEl.value;
+    const dateEl=row.querySelector('[data-f=date]');
+    if(dateEl) acts[i].date=dateEl.value;
+    const nameEl=row.querySelector('[data-f=name]');
+    if(nameEl) acts[i].name=nameEl.value;
+    const contentEl=row.querySelector('[data-f=content]');
+    if(contentEl) acts[i].content=contentEl.value;
+    const douEl=row.querySelector('[data-f=dou]');
+    if(douEl){
+      const douStr=douEl.value.trim();
+      acts[i].dou=douStr?douStr.split(/[,，、]+/).map(x=>x.trim()).filter(Boolean):[];
+    }
+    const priceEl=row.querySelector('[data-f=price]');
+    if(priceEl) acts[i].price=parseInt(priceEl.value)||0;
   });
   saveActs(acts); renderFamilies(); renderPrintTable();
   showToast('✦ 活動設定已儲存');
