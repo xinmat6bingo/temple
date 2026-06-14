@@ -186,7 +186,10 @@ textarea{resize:vertical;min-height:60px}
 <!-- ===== RECORDS ===== -->
 <div id="panel-records" class="tab-panel">
   <div class="card">
-    <div class="section-title">報名紀錄管理</div>
+    <div class="section-title">報名紀錄管理
+      <button onclick="cloudLoad()" style="margin-left:auto;background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
+    </div>
+    <div id="sync-status" style="font-size:12px;color:var(--smoke);margin-bottom:8px;min-height:18px;letter-spacing:.5px"></div>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <input type="text" id="rec-q" placeholder="搜尋姓名…" style="flex:1;min-width:120px" oninput="renderRecords()">
       <input type="text" id="rec-staff-q" placeholder="搜尋服務人員…" style="flex:1;min-width:120px" oninput="renderRecords()">
@@ -372,8 +375,74 @@ function getActs(){try{const s=localStorage.getItem('t_acts');return s?JSON.pars
 function saveActs(a){localStorage.setItem('t_acts',JSON.stringify(a))}
 function getCfg(){try{return JSON.parse(localStorage.getItem('t_cfg')||'{}')}catch{return {}}}
 function saveCfg(c){localStorage.setItem('t_cfg',JSON.stringify(c))}
+const GAS_URL='https://script.google.com/macros/s/AKfycbxrS8kHa4E2bFzxOrW_fZH48ROBr1gC_hrFx1ftFbhQXSxRT4AqikWyyFd4gkGI4wQs/exec';
+let _cloudLoaded=false;
+
 function getRecords(){try{return JSON.parse(localStorage.getItem('t_recs')||'[]')}catch{return []}}
 function saveRecords(r){localStorage.setItem('t_recs',JSON.stringify(r))}
+
+// ── 雲端同步 ──
+async function cloudLoad(){
+  try{
+    showSyncStatus('⏳ 載入雲端資料…');
+    const res=await fetch(GAS_URL+'?t='+Date.now());
+    const data=await res.json();
+    if(data.ok){
+      saveRecords(data.records||[]);
+      _cloudLoaded=true;
+      showSyncStatus('✅ 雲端同步完成（'+(data.records||[]).length+'筆）');
+      renderRecords();
+    } else {
+      showSyncStatus('⚠ 載入失敗：'+data.error);
+    }
+  }catch(e){
+    showSyncStatus('⚠ 網路錯誤：'+e.message);
+  }
+}
+
+async function cloudSave(records){
+  try{
+    showSyncStatus('⏳ 儲存至雲端…');
+    const res=await fetch(GAS_URL,{
+      method:'POST',
+      body:JSON.stringify({action:'save',records})
+    });
+    const data=await res.json();
+    if(data.ok){
+      showSyncStatus('✅ 已儲存至雲端');
+    }else{
+      showSyncStatus('⚠ 儲存失敗：'+data.error);
+    }
+  }catch(e){
+    showSyncStatus('⚠ 網路錯誤：'+e.message);
+  }
+}
+
+async function cloudDelete(id){
+  try{
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'delete',id})});
+  }catch(e){console.error('cloud delete error',e);}
+}
+
+async function cloudClear(){
+  try{
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'clear'})});
+  }catch(e){console.error('cloud clear error',e);}
+}
+
+function showSyncStatus(msg){
+  let el=document.getElementById('sync-status');
+  if(!el)return;
+  el.textContent=msg;
+  if(msg.startsWith('✅')){
+    el.style.color='#2D7A3A';
+    setTimeout(()=>{el.textContent=''},3000);
+  }else if(msg.startsWith('⚠')){
+    el.style.color='var(--crimson)';
+  }else{
+    el.style.color='var(--smoke)';
+  }
+}
 
 // ======== STATE ========
 // families = [{fid, members:[{bid, name, gender, zodiac, age, address, phone, email, byear, bmonth, bday, bhour, cal, actIds:[]}]}]
@@ -483,7 +552,10 @@ function switchTab(name,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
   btn.classList.add('active');
-  if(name==='records') renderRecords();
+  if(name==='records'){
+    renderRecords();
+    if(!_cloudLoaded) cloudLoad();
+  }
   if(name==='settings'){renderActEditor();applyCfg();loadNoCfgToUI();}
 }
 
@@ -770,7 +842,10 @@ function submitAll(){
   });
 
   saveRecords(recs);
-  showToast(`✦ 報名成功！共 ${recs.filter(r=>r.batchId===batchId).length} 筆　合計：$${batchTotal.toLocaleString()}`);
+  // 只上傳這批新增的紀錄
+  const newRecs=recs.filter(r=>r.batchId===batchId);
+  cloudSave(newRecs);
+  showToast(`✦ 報名成功！共 ${newRecs.length} 筆　合計：$${batchTotal.toLocaleString()}`);
   families=[];famCount=0;belCount=0;
   document.getElementById('f-notes').value='';
   addFamily();
@@ -834,6 +909,7 @@ function delRec(id){
   document.getElementById('del-modal-msg').textContent=`確定要刪除「${r.name}」的報名紀錄嗎？此操作無法復原。`;
   document.getElementById('del-modal-confirm').onclick=function(){
     saveRecords(getRecords().filter(x=>x.id!==id));
+    cloudDelete(id);
     closeDelModal();
     renderRecords();
     showToast('已刪除');
@@ -848,6 +924,7 @@ function clearAllRec(){
   document.getElementById('del-modal-msg').textContent='確定要清除所有報名紀錄嗎？此操作無法復原。';
   document.getElementById('del-modal-confirm').onclick=function(){
     saveRecords([]);
+    cloudClear();
     closeDelModal();
     renderRecords();
     showToast('已清除所有紀錄');
