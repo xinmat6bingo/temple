@@ -191,7 +191,7 @@ textarea{resize:vertical;min-height:60px}
       <input type="text" id="rec-q" placeholder="搜尋姓名…" style="flex:1;min-width:120px" oninput="renderRecords()">
       <input type="text" id="rec-staff-q" placeholder="搜尋服務人員…" style="flex:1;min-width:120px" oninput="renderRecords()">
       <input type="text" id="rec-family-q" placeholder="搜尋家庭編號…" style="width:130px" oninput="renderRecords()">
-      <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 匯出 CSV</button>
+      <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 匯出 Excel</button>
       <button class="btn btn-sm" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);color:var(--blue);border-radius:4px;cursor:pointer;padding:6px 14px;font-size:12px;letter-spacing:1px" onclick="mergeSelected()">🔗 合併選取為同一戶</button>
       <button class="btn btn-sm" style="background:transparent;border:1px solid #ccc;color:#888;border-radius:4px;cursor:pointer" onclick="clearAllRec()">🗑️ 清除全部</button>
     </div>
@@ -849,10 +849,15 @@ function mergeSelected(){
 }
 
 function exportCSV(){
-  let recs=getRecords();
+  const recs=getRecords();
   if(!recs.length){showToast('尚無資料');return}
+  showToast('⏳ 正在產生 Excel 檔案…');
+  setTimeout(()=>_doExport(recs), 100);
+}
 
-  recs.sort((a,b)=>{
+function _doExport(recs){
+  // Sort by number
+  recs=[...recs].sort((a,b)=>{
     const an=parseInt((a.id||'').replace(/[^0-9]/g,'')),bn=parseInt((b.id||'').replace(/[^0-9]/g,''));
     if(!isNaN(an)&&!isNaN(bn)) return an-bn;
     return (a.id||'').localeCompare(b.id||'','zh-TW');
@@ -860,36 +865,144 @@ function exportCSV(){
 
   const acts=getActs();
   const cfg=getCfg();
-  const templeTitle=(cfg.title||'天聖宮')+' '+(cfg.sub||'(115)丙午年度年度轉運消災安斗祈福行程報名表');
+  const templeTitle=(cfg.title||'天聖宮')+' '+(cfg.sub||'');
+
+  // Staff color map - assign colors to each unique staff member
   const staffNames=[...new Set(recs.map(r=>r.staffName||'').filter(Boolean))];
+  const COLORS=['7030A0','0070C0','00B050','FF0000','FF6600','FF00FF','00CCCC','996633','CC0066','003399'];
+  const staffColorMap={};
+  staffNames.forEach((s,i)=>{ staffColorMap[s]=COLORS[i%COLORS.length]; });
 
-  // 第1列：空白+廟名副標題+空白*4+服務人員橫排
-  const row1=['',templeTitle,'','','','',''].concat(staffNames);
+  // Build Excel XML (SpreadsheetML format)
+  const cols=7+acts.length;
 
-  // 第2列：欄位標題
-  const actLabels=acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name);
-  const row2=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所'].concat(actLabels);
+  // Helper: escape XML
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-  // 資料列
-  const dataRows=recs.map(r=>{
+  // Styles
+  const styleXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="3">
+    <font><sz val="11"/><name val="Arial"/></font>
+    <font><b/><sz val="12"/><name val="Arial"/></font>
+    <font><b/><sz val="11"/><name val="Arial"/><color rgb="FF000000"/></font>
+  </fonts>
+  <fills count="${3+staffNames.length}">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill>
+    ${staffNames.map(s=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${staffColorMap[s]}"/></patternFill></fill>`).join('')}
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="${5+staffNames.length}">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"><alignment wrapText="1" horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0"/>
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0"/>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>
+    ${staffNames.map((_,i)=>`<xf numFmtId="0" fontId="0" fillId="${3+i}" borderId="1" xfId="0"/>`).join('')}
+  </cellXfs>
+</styleSheet>`;
+
+  // Sheet data
+  function cell(val,styleIdx,row,col){
+    const addr=colLetter(col)+row;
+    const v=String(val||'');
+    if(!v) return `<c r="${addr}" s="${styleIdx}"><v></v></c>`;
+    const num=Number(v);
+    if(!isNaN(num)&&v.trim()!=='') return `<c r="${addr}" s="${styleIdx}" t="n"><v>${num}</v></c>`;
+    return `<c r="${addr}" s="${styleIdx}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
+  }
+  function colLetter(n){
+    let s='';
+    while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-1)/26);}
+    return s;
+  }
+
+  let rows=[];
+
+  // Row 1: title + staff names with colors
+  let r1='<row r="1">';
+  r1+=cell('',0,1,1);
+  r1+=cell(templeTitle,1,1,2);
+  for(let c=3;c<=7;c++) r1+=cell('',0,1,c);
+  staffNames.forEach((s,i)=>{
+    const sIdx=5+i;
+    r1+=cell(s,sIdx,1,8+i);
+  });
+  r1+='</row>';
+  rows.push(r1);
+
+  // Row 2: headers
+  let r2='<row r="2">';
+  const hdrs=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所'].concat(acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name));
+  hdrs.forEach((h,i)=>{ r2+=cell(h,2,2,i+1); });
+  r2+='</row>';
+  rows.push(r2);
+
+  // Data rows
+  recs.forEach((r,ri)=>{
+    const rowNum=ri+3;
+    const staffColor=r.staffName?staffColorMap[r.staffName]:null;
+    const baseStyle=staffColor?(5+staffNames.indexOf(r.staffName)):4;
+    let rr=`<row r="${rowNum}">`;
     const base=[r.id||'',r.name||'',r.gender||'',r.zodiac||'',r.age||'',r.bazi||'',r.address||''];
-    const actCols=acts.map(a=>{
-      const i=(r.activities||[]).indexOf(a.name);
-      if(i===-1) return '';
-      const d=((r.douInfo||[])[i]||'').match(/x([0-9]+)斗/);
-      return d?d[1]:'1';
+    base.forEach((v,i)=>{ rr+=cell(v,baseStyle,rowNum,i+1); });
+    acts.forEach((a,i)=>{
+      const idx=(r.activities||[]).indexOf(a.name);
+      if(idx===-1){rr+=cell('',baseStyle,rowNum,8+i);return;}
+      const d=((r.douInfo||[])[idx]||'').match(/x([0-9]+)斗/);
+      rr+=cell(d?d[1]:'1',baseStyle,rowNum,8+i);
     });
-    return base.concat(actCols);
+    rr+='</row>';
+    rows.push(rr);
   });
 
-  const q=v=>'"'+(v||'').toString().replace(/"/g,'""')+'"';
-  const bom=String.fromCharCode(65279);const csv=bom+[row1,row2,...dataRows].map(r=>r.map(q).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.csv';
-  a.click();
-  showToast('✦ CSV 已匯出');
+  const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetData>${rows.join('')}</sheetData>
+</worksheet>`;
+
+  // Build ZIP (xlsx)
+  const files={
+    '[Content_Types].xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+    '_rels/.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    'xl/workbook.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="工作表1" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+    'xl/worksheets/sheet1.xml':sheetXml,
+    'xl/styles.xml':styleXml
+  };
+
+  // Use JSZip if available, else fallback to CSV
+  if(typeof JSZip==='undefined'){
+    // Load JSZip dynamically
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    script.onload=()=>_buildZip(files,acts,recs,staffNames,staffColorMap);
+    document.head.appendChild(script);
+  } else {
+    _buildZip(files,acts,recs,staffNames,staffColorMap);
+  }
 }
+
+function _buildZip(files){
+  const zip=new JSZip();
+  Object.entries(files).forEach(([path,content])=>zip.file(path,content));
+  zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    .then(blob=>{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+      a.click();
+      showToast('✦ Excel 已匯出（含顏色）');
+    });
+}
+
+
 function renderActEditor(){
   const acts=getActs();
   document.getElementById('act-editor').innerHTML=acts.map((a,i)=>`
