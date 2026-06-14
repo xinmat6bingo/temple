@@ -883,8 +883,7 @@ function exportCSV(){
   });
 
   const q=v=>'"'+(v||'').toString().replace(/"/g,'""')+'"';
-  const csv='﻿'+[row1,row2,...dataRows].map(r=>r.map(q).join(',')).join('
-');
+  const bom=String.fromCharCode(65279);const csv=bom+[row1,row2,...dataRows].map(r=>r.map(q).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
   a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.csv';
