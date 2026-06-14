@@ -849,26 +849,48 @@ function mergeSelected(){
 }
 
 function exportCSV(){
-  const recs=getRecords();
+  let recs=getRecords();
   if(!recs.length){showToast('尚無資料');return}
-  const hdr=['編號','家庭編號','批次編號','姓名','性別','生肖','庚年','生辰八字','吉宅住所','活動項目（含斗數）','斗數','金額','備注','服務人員','登記時間'];
-  const rows=recs.map(r=>[
-    r.id,r.familyNo||'',r.batchId||'',
-    r.name,r.gender||'',r.zodiac||'',r.age||'',
-    r.address||'',r.phone||'',r.email||'',
-    r.bazi||'',r.cal||'',
-    (r.douInfo||r.activities||[]).join('、'),
-    r.total||0,r.notes||'',
-    r.staffName||'',r.createdAt||''
-  ].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv='\uFEFF'+[hdr.join(','),...rows].join('\n');
+
+  recs.sort((a,b)=>{
+    const an=parseInt((a.id||'').replace(/[^0-9]/g,'')),bn=parseInt((b.id||'').replace(/[^0-9]/g,''));
+    if(!isNaN(an)&&!isNaN(bn)) return an-bn;
+    return (a.id||'').localeCompare(b.id||'','zh-TW');
+  });
+
+  const acts=getActs();
+  const cfg=getCfg();
+  const templeTitle=(cfg.title||'天聖宮')+' '+(cfg.sub||'(115)丙午年度年度轉運消災安斗祈福行程報名表');
+  const staffNames=[...new Set(recs.map(r=>r.staffName||'').filter(Boolean))];
+
+  // 第1列：空白+廟名副標題+空白*4+服務人員橫排
+  const row1=['',templeTitle,'','','','',''].concat(staffNames);
+
+  // 第2列：欄位標題
+  const actLabels=acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name);
+  const row2=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所'].concat(actLabels);
+
+  // 資料列
+  const dataRows=recs.map(r=>{
+    const base=[r.id||'',r.name||'',r.gender||'',r.zodiac||'',r.age||'',r.bazi||'',r.address||''];
+    const actCols=acts.map(a=>{
+      const i=(r.activities||[]).indexOf(a.name);
+      if(i===-1) return '';
+      const d=((r.douInfo||[])[i]||'').match(/x([0-9]+)斗/);
+      return d?d[1]:'1';
+    });
+    return base.concat(actCols);
+  });
+
+  const q=v=>'"'+(v||'').toString().replace(/"/g,'""')+'"';
+  const csv='﻿'+[row1,row2,...dataRows].map(r=>r.map(q).join(',')).join('
+');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download=`天聖宮報名_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.csv`;
-  a.click(); showToast('✦ CSV 已匯出');
+  a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.csv';
+  a.click();
+  showToast('✦ CSV 已匯出');
 }
-
-// ======== SETTINGS ========
 function renderActEditor(){
   const acts=getActs();
   document.getElementById('act-editor').innerHTML=acts.map((a,i)=>`
