@@ -856,7 +856,6 @@ function exportCSV(){
 }
 
 function _doExport(recs){
-  // Sort by number
   recs=[...recs].sort((a,b)=>{
     const an=parseInt((a.id||'').replace(/[^0-9]/g,'')),bn=parseInt((b.id||'').replace(/[^0-9]/g,''));
     if(!isNaN(an)&&!isNaN(bn)) return an-bn;
@@ -867,96 +866,114 @@ function _doExport(recs){
   const cfg=getCfg();
   const templeTitle=(cfg.title||'天聖宮')+' '+(cfg.sub||'');
 
-  // Staff color map - assign colors to each unique staff member
+  // 固定五位服務人員顏色
+  const STAFF_COLORS={
+    '葉宏乘': '0070C0',  // 藍
+    '陳朋侑': '00B050',  // 綠
+    '蔡安俐': 'FF92D0',  // 粉
+    '黃濰貞': '7030A0',  // 紫
+    '陳妙沂': 'A6A6A6',  // 灰
+  };
+
+  // 收集所有出現的服務人員（含未在固定清單內的，給預設色）
   const staffNames=[...new Set(recs.map(r=>r.staffName||'').filter(Boolean))];
-  const COLORS=['7030A0','0070C0','00B050','FF0000','FF6600','FF00FF','00CCCC','996633','CC0066','003399'];
-  const staffColorMap={};
-  staffNames.forEach((s,i)=>{ staffColorMap[s]=COLORS[i%COLORS.length]; });
+  const EXTRA_COLORS=['FF0000','FF6600','FF00FF','003399','996633'];
+  staffNames.forEach((s,i)=>{
+    if(!STAFF_COLORS[s]) STAFF_COLORS[s]=EXTRA_COLORS[i%EXTRA_COLORS.length];
+  });
 
-  // Build Excel XML (SpreadsheetML format)
-  const cols=7+acts.length;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function colLetter(n){let s='';while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-1)/26);}return s;}
 
-  // Helper: escape XML
-  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // 建立 styleXfs：
+  // 0 = 預設
+  // 1 = 標題粗體置中
+  // 2 = 表頭黃底粗體邊框
+  // 3 = 一般欄位邊框（白底）
+  // 4+ = 信徒姓名欄專用色（每個服務人員一種）
+  const colorList=staffNames.map(s=>STAFF_COLORS[s]||'FFFFFF');
 
-  // Styles
   const styleXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="3">
+  <fonts count="2">
     <font><sz val="11"/><name val="Arial"/></font>
-    <font><b/><sz val="12"/><name val="Arial"/></font>
-    <font><b/><sz val="11"/><name val="Arial"/><color rgb="FF000000"/></font>
+    <font><b/><sz val="11"/><name val="Arial"/></font>
   </fonts>
-  <fills count="${3+staffNames.length}">
+  <fills count="${3+colorList.length}">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill>
-    ${staffNames.map(s=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${staffColorMap[s]}"/></patternFill></fill>`).join('')}
+    ${colorList.map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/></patternFill></fill>`).join('')}
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
-    <border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom></border>
+    <border>
+      <left style="thin"><color auto="1"/></left>
+      <right style="thin"><color auto="1"/></right>
+      <top style="thin"><color auto="1"/></top>
+      <bottom style="thin"><color auto="1"/></bottom>
+    </border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="${5+staffNames.length}">
+  <cellXfs count="${4+colorList.length}">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"><alignment wrapText="1" horizontal="center"/></xf>
-    <xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0"/>
-    <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"/>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>
-    ${staffNames.map((_,i)=>`<xf numFmtId="0" fontId="0" fillId="${3+i}" borderId="1" xfId="0"/>`).join('')}
+    ${colorList.map((_,i)=>`<xf numFmtId="0" fontId="1" fillId="${3+i}" borderId="1" xfId="0"/>`).join('')}
   </cellXfs>
 </styleSheet>`;
 
-  // Sheet data
   function cell(val,styleIdx,row,col){
     const addr=colLetter(col)+row;
     const v=String(val||'');
-    if(!v) return `<c r="${addr}" s="${styleIdx}"><v></v></c>`;
+    if(!v.trim()) return `<c r="${addr}" s="${styleIdx}"/>`;
     const num=Number(v);
     if(!isNaN(num)&&v.trim()!=='') return `<c r="${addr}" s="${styleIdx}" t="n"><v>${num}</v></c>`;
     return `<c r="${addr}" s="${styleIdx}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
   }
-  function colLetter(n){
-    let s='';
-    while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-1)/26);}
-    return s;
-  }
 
   let rows=[];
 
-  // Row 1: title + staff names with colors
+  // 第1列：空白＋廟名＋服務人員名（帶顏色）
   let r1='<row r="1">';
   r1+=cell('',0,1,1);
   r1+=cell(templeTitle,1,1,2);
   for(let c=3;c<=7;c++) r1+=cell('',0,1,c);
   staffNames.forEach((s,i)=>{
-    const sIdx=5+i;
-    r1+=cell(s,sIdx,1,8+i);
+    r1+=cell(s, 4+i, 1, 8+i);
   });
   r1+='</row>';
   rows.push(r1);
 
-  // Row 2: headers
+  // 第2列：欄位標題
+  const hdrs=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所']
+    .concat(acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name));
   let r2='<row r="2">';
-  const hdrs=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所'].concat(acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name));
   hdrs.forEach((h,i)=>{ r2+=cell(h,2,2,i+1); });
   r2+='</row>';
   rows.push(r2);
 
-  // Data rows
+  // 資料列：只有信徒姓名欄上色，其他欄白底邊框
   recs.forEach((r,ri)=>{
     const rowNum=ri+3;
-    const staffColor=r.staffName?staffColorMap[r.staffName]:null;
-    const baseStyle=staffColor?(5+staffNames.indexOf(r.staffName)):4;
+    const sIdx=staffNames.indexOf(r.staffName||'');
+    const nameStyle= sIdx>=0 ? 4+sIdx : 3; // 姓名欄用顏色，找不到就白底
+
     let rr=`<row r="${rowNum}">`;
     const base=[r.id||'',r.name||'',r.gender||'',r.zodiac||'',r.age||'',r.bazi||'',r.address||''];
-    base.forEach((v,i)=>{ rr+=cell(v,baseStyle,rowNum,i+1); });
+    // 編號欄：白底
+    rr+=cell(base[0], 3, rowNum, 1);
+    // 姓名欄：服務人員顏色
+    rr+=cell(base[1], nameStyle, rowNum, 2);
+    // 其他基本欄：白底
+    for(let i=2;i<7;i++) rr+=cell(base[i], 3, rowNum, i+1);
+    // 活動欄
     acts.forEach((a,i)=>{
       const idx=(r.activities||[]).indexOf(a.name);
-      if(idx===-1){rr+=cell('',baseStyle,rowNum,8+i);return;}
+      if(idx===-1){rr+=cell('',3,rowNum,8+i);return;}
       const d=((r.douInfo||[])[idx]||'').match(/x([0-9]+)斗/);
-      rr+=cell(d?d[1]:'1',baseStyle,rowNum,8+i);
+      rr+=cell(d?d[1]:'1', 3, rowNum, 8+i);
     });
     rr+='</row>';
     rows.push(rr);
@@ -967,7 +984,6 @@ function _doExport(recs){
 <sheetData>${rows.join('')}</sheetData>
 </worksheet>`;
 
-  // Build ZIP (xlsx)
   const files={
     '[Content_Types].xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
     '_rels/.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
@@ -977,17 +993,16 @@ function _doExport(recs){
     'xl/styles.xml':styleXml
   };
 
-  // Use JSZip if available, else fallback to CSV
   if(typeof JSZip==='undefined'){
-    // Load JSZip dynamically
     const script=document.createElement('script');
     script.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    script.onload=()=>_buildZip(files,acts,recs,staffNames,staffColorMap);
+    script.onload=()=>_buildZip(files);
     document.head.appendChild(script);
   } else {
-    _buildZip(files,acts,recs,staffNames,staffColorMap);
+    _buildZip(files);
   }
 }
+
 
 function _buildZip(files){
   const zip=new JSZip();
