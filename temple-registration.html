@@ -1041,10 +1041,16 @@ function _doExport(recs){
     'xl/styles.xml':styleXml
   };
 
-  _buildZip(files);
+  try {
+    _buildZip(files);
+  } catch(err) {
+    showToast('匯出錯誤：'+err.message);
+    console.error('Export error:', err);
+  }
 }
 
 function _buildZip(files){
+  try {
   function strToBytes(str){return new TextEncoder().encode(str);}
   function crc32(b){
     const t=new Uint32Array(256);
@@ -1075,6 +1081,10 @@ function _buildZip(files){
   a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
   a.click();
   showToast('✦ Excel 已匯出（含顏色）');
+  } catch(err2) {
+    showToast('ZIP錯誤：'+err2.message);
+    console.error('ZIP error:', err2);
+  }
 }
 
 
