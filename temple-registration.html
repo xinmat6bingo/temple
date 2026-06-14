@@ -242,6 +242,37 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
   <div class="card">
+    <div class="section-title">🔢 編號設定</div>
+    <p style="font-size:12px;color:var(--smoke);margin-bottom:14px">設定報名編號的格式，登記時可直接使用或手動覆蓋</p>
+    <div class="setting-row">
+      <span class="setting-label">編號前綴<br><span style="font-size:11px;color:var(--smoke)">留空則純數字，填入文字則會加在前面（如「A」→ A001）</span></span>
+      <input type="text" id="cfg-no-prefix" placeholder="留空為純數字" style="max-width:120px">
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">目前最後編號<br><span style="font-size:11px;color:var(--smoke)">下一筆從這個號碼 +1 開始自動填入</span></span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="cfg-no-counter" placeholder="0" min="0" style="max-width:100px">
+        <button class="btn btn-outline btn-sm" onclick="resetNoCounter()">重設為 0</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">編號位數<br><span style="font-size:11px;color:var(--smoke)">不足位數補零（如設 3 位：001、002…）</span></span>
+      <select id="cfg-no-digits" style="max-width:100px;border:1px solid var(--parchment-dark);border-radius:4px;padding:8px 10px;font-size:13px">
+        <option value="2">2 位（01）</option>
+        <option value="3" selected>3 位（001）</option>
+        <option value="4">4 位（0001）</option>
+        <option value="5">5 位（00001）</option>
+      </select>
+    </div>
+    <div style="background:var(--parchment);border-radius:4px;padding:10px 14px;margin:10px 0;font-size:13px;color:var(--smoke)">
+      預覽下一個編號：<strong id="no-preview" style="color:var(--crimson);font-size:15px;letter-spacing:2px">001</strong>
+    </div>
+    <div class="btn-row" style="justify-content:flex-start;margin-top:8px">
+      <button class="btn btn-gold btn-sm" onclick="saveNoCfg()">💾 儲存編號設定</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="section-title">👤 服務人員名單管理</div>
     <p style="font-size:12px;color:var(--smoke);margin-bottom:12px">設定後在報名頁面可直接下拉選擇服務人員</p>
     <div id="staff-editor" style="margin-bottom:12px"></div>
@@ -453,7 +484,7 @@ function switchTab(name,btn){
   document.getElementById('panel-'+name).classList.add('active');
   btn.classList.add('active');
   if(name==='records') renderRecords();
-  if(name==='settings'){renderActEditor();applyCfg();}
+  if(name==='settings'){renderActEditor();applyCfg();loadNoCfgToUI();}
 }
 
 // ======== FAMILIES ========
@@ -575,9 +606,13 @@ function renderFamilies(){
           </div>
           <div style="background:rgba(201,146,42,.08);border:1px solid var(--gold);border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
             <label style="color:var(--crimson);font-weight:700;font-size:13px;letter-spacing:2px;white-space:nowrap">📋 編號</label>
-            <input type="text" value="${m.bno||''}" placeholder="填寫編號，例：001"
-              style="font-size:16px;font-weight:700;letter-spacing:3px;color:var(--crimson);border:1px solid var(--gold);border-radius:4px;padding:7px 12px;flex:1;max-width:200px;font-family:'Noto Sans TC'"
+            <input type="text" id="bno-input-${m.bid}" value="${m.bno||''}" placeholder="填寫編號，例：001"
+              style="font-size:16px;font-weight:700;letter-spacing:3px;color:var(--crimson);border:1px solid var(--gold);border-radius:4px;padding:7px 12px;flex:1;max-width:180px;font-family:'Noto Sans TC'"
               oninput="updateBeliever('${f.fid}','${m.bid}','bno',this.value)">
+            <button onclick="autoFillNo('${f.fid}','${m.bid}')"
+              style="background:var(--gold);color:var(--red-deep);border:none;border-radius:4px;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;font-family:'Noto Sans TC'">
+              自動填入
+            </button>
           </div>
           <div class="form-grid">
             <div class="field"><label>姓名 <span class="req">*</span></label>
@@ -1006,28 +1041,40 @@ function _doExport(recs){
     'xl/styles.xml':styleXml
   };
 
-  if(typeof JSZip==='undefined'){
-    const script=document.createElement('script');
-    script.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    script.onload=()=>_buildZip(files);
-    document.head.appendChild(script);
-  } else {
-    _buildZip(files);
-  }
+  _buildZip(files);
 }
 
-
 function _buildZip(files){
-  const zip=new JSZip();
-  Object.entries(files).forEach(([path,content])=>zip.file(path,content));
-  zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
-    .then(blob=>{
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
-      a.click();
-      showToast('✦ Excel 已匯出（含顏色）');
-    });
+  function strToBytes(str){return new TextEncoder().encode(str);}
+  function crc32(b){
+    const t=new Uint32Array(256);
+    for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?(0xEDB88320^(c>>>1)):c>>>1;t[i]=c;}
+    let c=0xFFFFFFFF;
+    for(let i=0;i<b.length;i++)c=t[(c^b[i])&0xFF]^(c>>>8);
+    return(c^0xFFFFFFFF)>>>0;
+  }
+  function u32(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n,true);return b;}
+  function u16(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n,true);return b;}
+  function cat(...a){const t=a.reduce((s,x)=>s+x.length,0),o=new Uint8Array(t);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
+
+  const entries=[];let offset=0;
+  for(const [path,content] of Object.entries(files)){
+    const nb=strToBytes(path),db=strToBytes(content);
+    const crc=crc32(db),sz=db.length;
+    const lh=cat(new Uint8Array([0x50,0x4B,0x03,0x04]),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(sz),u32(sz),u16(nb.length),u16(0),nb);
+    entries.push({nb,db,crc,sz,offset,lh});
+    offset+=lh.length+sz;
+  }
+  const cdParts=entries.map(e=>cat(new Uint8Array([0x50,0x4B,0x01,0x02]),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(e.crc),u32(e.sz),u32(e.sz),u16(e.nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(e.offset),e.nb));
+  const cd=cat(...cdParts);
+  const eocd=cat(new Uint8Array([0x50,0x4B,0x05,0x06]),u16(0),u16(0),u16(entries.length),u16(entries.length),u32(cd.length),u32(offset),u16(0));
+  const zip=cat(...entries.flatMap(e=>[e.lh,e.db]),cd,eocd);
+  const blob=new Blob([zip],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='天聖宮報名_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+  a.click();
+  showToast('✦ Excel 已匯出（含顏色）');
 }
 
 
@@ -1075,6 +1122,83 @@ function saveActivities(){
     if(priceEl) acts[i].price=parseInt(priceEl.value)||0;
   });
   saveActs(acts); renderFamilies();   showToast('✦ 活動設定已儲存');
+}
+
+// ======== 編號設定 ========
+function getNoCfg(){
+  try{return JSON.parse(localStorage.getItem('t_no_cfg')||'{}')}catch{return {}}
+}
+function saveNoCfgData(c){localStorage.setItem('t_no_cfg',JSON.stringify(c))}
+
+function getNextNo(){
+  const c=getNoCfg();
+  const prefix=c.prefix||'';
+  const counter=(c.counter||0)+1;
+  const digits=parseInt(c.digits)||3;
+  return prefix+String(counter).padStart(digits,'0');
+}
+
+function updateNoPreview(){
+  const prefix=document.getElementById('cfg-no-prefix')?.value||'';
+  const counter=parseInt(document.getElementById('cfg-no-counter')?.value)||0;
+  const digits=parseInt(document.getElementById('cfg-no-digits')?.value)||3;
+  const preview=prefix+String(counter+1).padStart(digits,'0');
+  const el=document.getElementById('no-preview');
+  if(el) el.textContent=preview;
+}
+
+function saveNoCfg(){
+  const c=getNoCfg();
+  c.prefix=document.getElementById('cfg-no-prefix')?.value||'';
+  c.counter=parseInt(document.getElementById('cfg-no-counter')?.value)||0;
+  c.digits=parseInt(document.getElementById('cfg-no-digits')?.value)||3;
+  saveNoCfgData(c);
+  updateNoPreview();
+  showToast('✦ 編號設定已儲存');
+}
+
+function resetNoCounter(){
+  const el=document.getElementById('cfg-no-counter');
+  if(el) el.value=0;
+  updateNoPreview();
+  showToast('已重設為 0，請點儲存生效');
+}
+
+function autoFillNo(fid,bid){
+  const c=getNoCfg();
+  const prefix=c.prefix||'';
+  c.counter=(c.counter||0)+1;
+  const digits=parseInt(c.digits)||3;
+  const no=prefix+String(c.counter).padStart(digits,'0');
+  saveNoCfgData(c);
+  // Update member
+  const f=families.find(x=>x.fid===fid);
+  if(f){
+    const m=f.members.find(x=>x.bid===bid);
+    if(m) m.bno=no;
+  }
+  // Update input directly
+  const input=document.getElementById('bno-input-'+bid);
+  if(input) input.value=no;
+  // Update counter in settings if open
+  const counterEl=document.getElementById('cfg-no-counter');
+  if(counterEl) counterEl.value=c.counter;
+  updateNoPreview();
+  showToast('✦ 已填入編號：'+no);
+}
+
+function loadNoCfgToUI(){
+  const c=getNoCfg();
+  const pEl=document.getElementById('cfg-no-prefix'); if(pEl) pEl.value=c.prefix||'';
+  const cEl=document.getElementById('cfg-no-counter'); if(cEl) cEl.value=c.counter||0;
+  const dEl=document.getElementById('cfg-no-digits'); if(dEl) dEl.value=c.digits||3;
+  // Add live preview listeners
+  ['cfg-no-prefix','cfg-no-counter','cfg-no-digits'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.oninput=updateNoPreview;
+    if(el) el.onchange=updateNoPreview;
+  });
+  updateNoPreview();
 }
 
 function resetDefaultActs(){
