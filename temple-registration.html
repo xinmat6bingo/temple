@@ -971,13 +971,18 @@ function mergeSelected(){
 }
 
 function exportCSV(){
-  const recs=getRecords();
-  if(!recs.length){showToast('尚無資料');return}
-  showToast('⏳ 正在產生 Excel 檔案…');
-  setTimeout(()=>_doExport(recs), 100);
+  try{
+    const recs=getRecords();
+    if(!recs.length){showToast('尚無資料');return}
+    showToast('⏳ 正在產生 Excel 檔案…');
+    setTimeout(()=>_doExport(recs), 100);
+  }catch(e){
+    alert('exportCSV錯誤：'+e.message);
+  }
 }
 
 function _doExport(recs){
+  try{
   recs=[...recs].sort((a,b)=>{
     const an=parseInt(String(a.id||'').replace(/[^0-9]/g,'')),bn=parseInt(String(b.id||'').replace(/[^0-9]/g,''));
     if(!isNaN(an)&&!isNaN(bn)) return an-bn;
@@ -1127,12 +1132,11 @@ function _doExport(recs){
     'xl/styles.xml':styleXml
   };
 
-  try {
-    _buildZip(files);
-  } catch(err) {
-    showToast('匯出錯誤：'+err.message);
-    console.error('Export error:', err);
-    alert('Excel 匯出失敗：'+err.message+'\n請截圖此訊息回報。');
+  _buildZip(files);
+  }catch(mainErr){
+    alert('Excel 錯誤：'+mainErr.message+'\n行號：'+(mainErr.stack||'').split('\n')[1]);
+    showToast('匯出失敗：'+mainErr.message);
+    console.error('_doExport error:',mainErr);
   }
 }
 
