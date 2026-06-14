@@ -127,7 +127,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('online',this)">📝 登記報名</button>
   <button class="tab-btn" onclick="switchTab('records',this)">📋 報名紀錄</button>
-  <button class="tab-btn" onclick="requirePassword(this)">⚙️ 後台設定</button>
+  <button class="tab-btn" onclick="requirePassword(this)">⚙️ 設定</button>
 </div>
 
 <div class="container">
@@ -140,11 +140,20 @@ textarea{resize:vertical;min-height:60px}
     <div class="section-title">服務人員資訊</div>
     <div class="staff-bar">
       <label>登記人員：</label>
-      <select id="staff-name" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:4px;padding:7px 12px;font-size:14px;flex:1;font-family:'Noto Sans TC'">
-        <option value="">請選擇服務人員</option>
+      <select id="staff-name-select" onchange="onStaffSelectChange(this.value)"
+        style="background:#fff;border:1px solid rgba(255,255,255,.4);color:var(--ink);border-radius:4px;padding:7px 10px;font-size:14px;font-family:'Noto Sans TC';min-width:120px">
+        <option value="">請選擇…</option>
+        <option value="__custom__">✏️ 自行輸入</option>
       </select>
+      <input type="text" id="staff-name-custom" placeholder="輸入姓名"
+        style="display:none;background:#fff;border:1px solid rgba(255,255,255,.4);color:var(--ink);
+          border-radius:4px;padding:7px 10px;font-size:14px;font-family:'Noto Sans TC';width:130px">
+      <input type="hidden" id="staff-name">
     </div>
-    <p style="font-size:12px;color:var(--smoke);letter-spacing:.5px">每次登記前請填入服務人員姓名，此名稱將記錄在所有報名資料中。</p>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:6px">
+      <p style="font-size:12px;color:var(--smoke);letter-spacing:.5px">每次登記前請選擇或填入服務人員，此名稱將記錄在所有報名資料中。</p>
+
+    </div>
   </div>
 
   <!-- 家庭群組區 -->
@@ -190,7 +199,7 @@ textarea{resize:vertical;min-height:60px}
       <table class="records-table">
         <thead><tr>
           <th><input type="checkbox" onchange="toggleAllRec(this)" style="accent-color:var(--gold)"></th>
-          <th>流水號</th>
+          <th>編號</th>
           <th>家庭編號</th>
           <th>姓名</th>
           <th>性別</th>
@@ -227,20 +236,7 @@ textarea{resize:vertical;min-height:60px}
       <span class="setting-label">副標題說明</span>
       <input type="text" id="cfg-sub" style="max-width:280px">
     </div>
-    <div class="setting-row">
-      <span class="setting-label">流水號前綴<br><span style="font-size:11px;color:var(--smoke)">例如輸入「115」，流水號會是 115001、115002…</span></span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="text" id="cfg-prefix" placeholder="115" style="max-width:100px">
-        <span style="font-size:13px;color:var(--smoke)">→ <span id="prefix-preview">115001</span></span>
-      </div>
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">流水號起始數字<br><span style="font-size:11px;color:var(--smoke)">目前最後一個號碼，下一筆會從這裡+1開始</span></span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="number" id="cfg-counter" placeholder="0" min="0" style="max-width:100px">
-        <button class="btn btn-outline btn-sm" onclick="resetCounter()">重設為0</button>
-      </div>
-    </div>
+
     <div class="btn-row" style="justify-content:flex-start;margin-top:12px">
       <button class="btn btn-gold btn-sm" onclick="saveBasicCfg()">💾 儲存</button>
     </div>
@@ -263,6 +259,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="btn-row" style="justify-content:flex-start;margin-top:12px;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="addActRow()">＋ 新增活動</button>
       <button class="btn btn-gold btn-sm" onclick="saveActivities()">💾 儲存活動設定</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--smoke);color:var(--smoke);border-radius:4px;cursor:pointer;padding:6px 14px;font-size:12px" onclick="resetDefaultActs()">↺ 重置為預設值</button>
     </div>
   </div>
 </div>
@@ -331,13 +328,13 @@ const DEFAULT_ACTS = [
   {id:'a2',no:'天赦日',  date:'115/05/20(4/04)', name:'咒誓作法禳災斗',content:'黃筑英',        price:600},
   {id:'a3',no:'年度祈福',date:'115/06/16(5/02)', name:'還陰債',        content:'黃筑英',        price:1200},
   {id:'a4',no:'天赦日',  date:'115/07/19(6/6)',  name:'天官財神賜福斗',content:'陳朋侑',        price:1200},
-  {id:'a5',no:'中元普渡',date:'115/09/07(7/26)', name:'中元普渡',      content:'黃筑英、葉東亮',price:800},
+  {id:'a5',no:'中元普渡',date:'115/09/07(7/26)', name:'中元普渡',      content:'黃筑英、葉東霖',price:800},
   {id:'a6',no:'天赦日',  date:'115/10/01(8/21)', name:'祛除惡習斗',    content:'葉宏乘',        price:800},
   {id:'a7',no:'年度祈福',date:'115/11/09(10/1)', name:'安地基主斗',    content:'黃兆琳、黃筑英',price:600},
-  {id:'a8',no:'天赦日',  date:'115/12/16(11/8)', name:'星辰高照斗',    content:'黃筑英、葉東亮',price:600},
+  {id:'a8',no:'天赦日',  date:'115/12/16(11/8)', name:'星辰高照斗',    content:'黃筑英、葉東霖',price:600},
   {id:'a9',no:'年度祈福',date:'115/12/23(11/15)',name:'冬至補運',      content:'黃筑英',        price:300},
-  {id:'a10',no:'年度祈福',date:'116/01/13(12/6)',name:'年度祭解儀式',  content:'黃筑英、馬竣閔',price:1000},
-  {id:'a11',no:'年度祈福',date:'116/01/30(12/23)',name:'解車關儀式',   content:'黃筑英、蔡安佑',price:600},
+  {id:'a10',no:'年度祈福',date:'116/01/13(12/6)',name:'年度祭解儀式',  content:'黃筑英、馬竣煜',price:1000},
+  {id:'a11',no:'年度祈福',date:'116/01/30(12/23)',name:'解車關儀式',   content:'黃筑英、蔡安俐',price:600},
 ];
 
 function getActs(){try{const s=localStorage.getItem('t_acts');return s?JSON.parse(s):DEFAULT_ACTS}catch{return DEFAULT_ACTS}}
@@ -362,42 +359,52 @@ function init(){
 
 function applyCfg(){
   const cfg=getCfg();
-  const title=cfg.title||'天聖宮活動報名系統';
-  const sub=cfg.sub||'(115)年度各項活動儀式報名';
+  const title=cfg.title||'天聖宮';
+  const sub=cfg.sub||'(115)丙午年度年度轉運消災安斗祈福行程報名表';
   document.getElementById('temple-title-display').textContent=title;
   document.getElementById('temple-sub-display').textContent=sub;
   const pfTitle=document.getElementById('pf-main-title'); if(pfTitle) pfTitle.textContent='◈ '+title+' ◈';
   const ct=document.getElementById('cfg-title'); if(ct) ct.value=cfg.title||'';
   const cs=document.getElementById('cfg-sub'); if(cs) cs.value=cfg.sub||'';
-  const cp=document.getElementById('cfg-prefix'); if(cp) cp.value=cfg.prefix||'115';
-  const cc=document.getElementById('cfg-counter'); if(cc) cc.value=cfg.counter||0;
-  const pp=document.getElementById('prefix-preview');
-  if(pp) pp.textContent=(cfg.prefix||'115')+String((cfg.counter||0)+1).padStart(3,'0');
-  const cpEl=document.getElementById('cfg-prefix');
-  if(cpEl) cpEl.oninput=function(){
-    const p=document.getElementById('prefix-preview');
-    const c=parseInt(document.getElementById('cfg-counter').value)||0;
-    if(p) p.textContent=this.value+String(c+1).padStart(3,'0');
-  };
+
   renderStaffSelect();
   renderStaffEditor();
 }
 
-function getStaffList(){try{return JSON.parse(localStorage.getItem('t_staff')||'[]')}catch{return []}}
+function getStaffList(){
+  try{
+    const s=localStorage.getItem('t_staff');
+    if(s) return JSON.parse(s);
+    // 預設名單
+    return ['黃筑英','葉東霖','黃兆琳','葉宏乘','陳佩儀','陳朋侑','馬竣煜','蔡安俐','黃濰貞','陳妙沂'];
+  }catch{return []}
+}
 function saveStaffListData(s){localStorage.setItem('t_staff',JSON.stringify(s))}
 
 function renderStaffSelect(){
-  const sel=document.getElementById('staff-name');
+  const sel=document.getElementById('staff-name-select');
   if(!sel) return;
   const staff=getStaffList();
-  const cur=sel.value;
-  sel.innerHTML='<option value="">請選擇服務人員</option>';
+  sel.innerHTML='<option value="">請選擇…</option>';
   staff.forEach(s=>{
     const opt=document.createElement('option');
-    opt.value=s; opt.textContent=s;
-    if(s===cur) opt.selected=true;
-    sel.appendChild(opt);
+    opt.value=s; opt.textContent=s; sel.appendChild(opt);
   });
+  const customOpt=document.createElement('option');
+  customOpt.value='__custom__'; customOpt.textContent='✏️ 自行輸入';
+  sel.appendChild(customOpt);
+}
+function onStaffSelectChange(val){
+  const customInput=document.getElementById('staff-name-custom');
+  const hidden=document.getElementById('staff-name');
+  if(val==='__custom__'){
+    customInput.style.display='block';
+    customInput.oninput=function(){ hidden.value=this.value; };
+    hidden.value='';
+  } else {
+    customInput.style.display='none';
+    hidden.value=val;
+  }
 }
 
 function renderStaffEditor(){
@@ -474,7 +481,7 @@ function addBeliever(fid){
   const f=families.find(x=>x.fid===fid);
   if(!f) return;
   const bid='b'+(++belCount);
-  f.members.push({bid,name:'',gender:'',zodiac:'',age:'',address:'',phone:'',email:'',
+  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',
     byear:'',bmonth:'',bday:'',bhour:'',cal:'農曆',actIds:[]});
   renderFamilies();
 }
@@ -565,6 +572,12 @@ function renderFamilies(){
               ${f.members.length>1?`<button class="del-btn" onclick="removeBeliever('${f.fid}','${m.bid}')">✕</button>`:''}
             </div>
           </div>
+          <div style="background:rgba(201,146,42,.08);border:1px solid var(--gold);border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
+            <label style="color:var(--crimson);font-weight:700;font-size:13px;letter-spacing:2px;white-space:nowrap">📋 編號</label>
+            <input type="text" value="${m.bno||''}" placeholder="填寫編號，例：001"
+              style="font-size:16px;font-weight:700;letter-spacing:3px;color:var(--crimson);border:1px solid var(--gold);border-radius:4px;padding:7px 12px;flex:1;max-width:200px;font-family:'Noto Sans TC'"
+              oninput="updateBeliever('${f.fid}','${m.bid}','bno',this.value)">
+          </div>
           <div class="form-grid">
             <div class="field"><label>姓名 <span class="req">*</span></label>
               <input type="text" value="${m.name}" placeholder="信徒姓名" oninput="updateBeliever('${f.fid}','${m.bid}','name',this.value)">
@@ -587,34 +600,9 @@ function renderFamilies(){
             <div class="field span2"><label>吉宅住所</label>
               <input type="text" value="${m.address}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
             </div>
-            <div class="field"><label>聯絡電話</label>
-              <input type="text" value="${m.phone}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
-            </div>
+
           </div>
           <div class="divider" style="margin:10px 0">生辰八字</div>
-          <!-- 國曆轉農曆工具 -->
-          <div style="background:rgba(201,146,42,.07);border:1px solid var(--gold);border-radius:6px;padding:12px 14px;margin-bottom:12px">
-            <div style="font-size:12px;color:var(--smoke);margin-bottom:8px;letter-spacing:1px">🔄 國曆轉農曆（若已知農曆可略過）</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-              <div class="field" style="flex:1;min-width:100px">
-                <label>國曆年（民國）</label>
-                <input type="number" id="solar-year-${m.bid}" placeholder="例：60" min="1" max="150" style="padding:7px 10px">
-              </div>
-              <div class="field" style="flex:1;min-width:70px">
-                <label>月</label>
-                <input type="number" id="solar-month-${m.bid}" placeholder="1-12" min="1" max="12" style="padding:7px 10px">
-              </div>
-              <div class="field" style="flex:1;min-width:70px">
-                <label>日</label>
-                <input type="number" id="solar-day-${m.bid}" placeholder="1-31" min="1" max="31" style="padding:7px 10px">
-              </div>
-              <button onclick="convertToLunar('${f.fid}','${m.bid}')"
-                style="background:var(--gold);color:var(--red-deep);border:none;border-radius:4px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;font-family:'Noto Sans TC'">
-                轉換 →
-              </button>
-            </div>
-            <div id="lunar-result-${m.bid}" style="font-size:13px;color:var(--crimson);margin-top:8px;font-weight:600;min-height:20px"></div>
-          </div>
           <div class="form-grid three">
             <div class="field"><label>農曆出生年（民國）</label>
               <input type="text" id="byear-${m.bid}" value="${m.byear}" placeholder="例：60年" oninput="updateBeliever('${f.fid}','${m.bid}','byear',this.value)">
@@ -706,13 +694,19 @@ function submitAll(){
   if(!hasData){showToast('⚠ 請至少填寫一位信徒姓名');return}
 
   const acts=getActs();
-  const recs=getRecords();
+  let recs=getRecords();
+  recs.sort((a,b)=>{
+    const an=parseInt((a.id||'').replace(/\D/g,'')), bn=parseInt((b.id||'').replace(/\D/g,''));
+    if(!isNaN(an)&&!isNaN(bn)) return an-bn;
+    return (a.id||'').localeCompare(b.id||'','zh-TW');
+  });
   const cfg2=getCfg();
   const prefix=cfg2.prefix||'115';
   let counter=(cfg2.counter||0)+1;
   const batchId=prefix+String(counter).padStart(3,'0');
   cfg2.counter=counter;
   saveCfg(cfg2);
+
   const now=new Date().toLocaleString('zh-TW');
   let batchTotal=0;
 
@@ -721,7 +715,7 @@ function submitAll(){
     const familyNo = (f.joinNo && f.joinNo.trim()) ? f.joinNo.trim() : `${batchId}-F${fi+1}`;
     f.members.forEach(m=>{
       if(!m.name.trim()) return; // skip empty
-      const id=batchId+'-'+String(fi+1).padStart(1,'0')+String(f.members.indexOf(m)+1).padStart(2,'0');
+      const id=m.bno&&m.bno.trim() ? m.bno.trim() : (batchId+'-'+String(fi+1)+String(f.members.indexOf(m)+1).padStart(2,'0'));
       const actNames=m.actIds.map(aid=>{const a=acts.find(x=>x.id===aid);return a?a.name:'';}).filter(Boolean);
       const total=m.actIds.reduce((s,aid)=>{const a=acts.find(x=>x.id===aid);return s+(a?a.price:0);},0);
       batchTotal+=total;
@@ -729,8 +723,7 @@ function submitAll(){
         id, familyNo, batchId,
         staffName,
         name:m.name, gender:m.gender, zodiac:m.zodiac, age:m.age,
-        address:m.address, phone:m.phone, email:m.email,
-        bazi:`${m.byear}年 ${m.bmonth}月 ${m.bday}日 ${m.bhour}`,
+        address:m.address, bazi:`${m.byear}年 ${m.bmonth}月 ${m.bday}日 ${m.bhour}`,
         cal:m.cal,
         activities:actNames,
         total,
@@ -771,11 +764,18 @@ function renderRecords(){
     if(fq && !(r.familyNo||'').toLowerCase().includes(fq)) return false;
     return true;
   });
+  // 依編號排序（數字優先，非數字字串按字母）
+  recs.sort((a,b)=>{
+    const aid=a.id||'', bid2=b.id||'';
+    const an=parseInt(aid.replace(/\D/g,'')), bn=parseInt(bid2.replace(/\D/g,''));
+    if(!isNaN(an)&&!isNaN(bn)) return an-bn;
+    return aid.localeCompare(bid2,'zh-TW');
+  });
   const tb=document.getElementById('rec-body');
   if(!recs.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--smoke);padding:22px">尚無報名紀錄</td></tr>';return}
   tb.innerHTML=recs.map(r=>`<tr id="recrow-${r.id}">
     <td><input type="checkbox" class="rec-chk" data-id="${r.id}" style="accent-color:var(--crimson);width:14px;height:14px"></td>
-    <td><code style="font-size:10px">${r.id}</code></td>
+    <td><strong style="color:var(--crimson);font-size:13px;letter-spacing:1px">${r.id}</strong></td>
     <td><span class="badge badge-gold">${r.familyNo||'-'}</span></td>
     <td><strong>${r.name}</strong></td>
     <td>${r.gender||''}</td>
@@ -851,7 +851,7 @@ function mergeSelected(){
 function exportCSV(){
   const recs=getRecords();
   if(!recs.length){showToast('尚無資料');return}
-  const hdr=['流水號','家庭編號','批次編號','姓名','性別','生肖','年齡','吉宅住所','電話','信箱','生辰八字','曆法','活動項目（含斗數）','金額','備注','服務人員','登記時間'];
+  const hdr=['編號','家庭編號','批次編號','姓名','性別','生肖','庚年','生辰八字','吉宅住所','活動項目（含斗數）','斗數','金額','備注','服務人員','登記時間'];
   const rows=recs.map(r=>[
     r.id,r.familyNo||'',r.batchId||'',
     r.name,r.gender||'',r.zodiac||'',r.age||'',
@@ -915,18 +915,26 @@ function saveActivities(){
   saveActs(acts); renderFamilies();   showToast('✦ 活動設定已儲存');
 }
 
+function resetDefaultActs(){
+  const modal=document.getElementById('del-modal');
+  document.getElementById('del-modal-msg').textContent='確定重置活動項目為預設值？目前的修改將會被覆蓋。';
+  document.getElementById('del-modal-confirm').onclick=function(){
+    localStorage.removeItem('t_acts');
+    closeDelModal();
+    renderActEditor();
+    showToast('✦ 已重置為預設活動');
+  };
+  modal.style.display='flex';
+}
+
 function saveBasicCfg(){
   const cfg=getCfg();
   cfg.title=document.getElementById('cfg-title').value.trim();
   cfg.sub=document.getElementById('cfg-sub').value.trim();
-  cfg.prefix=document.getElementById('cfg-prefix').value.trim()||'115';
-  cfg.counter=parseInt(document.getElementById('cfg-counter').value)||0;
+
   saveCfg(cfg); applyCfg(); showToast('✦ 設定已儲存');
 }
-function resetCounter(){
-  document.getElementById('cfg-counter').value=0;
-  showToast('起始數字已重設為 0，請點儲存生效');
-}
+
 
 // ── 農曆轉換（使用農曆對照表演算法）──
 const LUNAR_INFO=[
