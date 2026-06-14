@@ -531,6 +531,7 @@ function toggleAct(fid,bid,aid,checked){
 
 function renderFamilies(){
   const acts=getActs();
+  const fixedCols=7; // 固定欄位數：編號、姓名、性別、生肖、庚年、生辰八字、住所
   const container=document.getElementById('families-container');
   container.innerHTML=families.map((f,fi)=>{
     const fTotal=f.members.reduce((s,m)=>s+m.actIds.reduce((ss,aid)=>{
@@ -891,7 +892,9 @@ function _doExport(recs){
   // 2 = 表頭黃底粗體邊框
   // 3 = 一般欄位邊框（白底）
   // 4+ = 信徒姓名欄專用色（每個服務人員一種）
-  const colorList=staffNames.map(s=>STAFF_COLORS[s]||'FFFFFF');
+  // 固定五位服務人員顏色順序
+  const FIXED_STAFF_FOR_STYLE=['葉宏乘','陳朋侑','蔡安俐','黃濰貞','陳妙沂'];
+  const colorList=FIXED_STAFF_FOR_STYLE.map(s=>STAFF_COLORS[s]||'FFFFFF');
 
   const styleXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -935,13 +938,18 @@ function _doExport(recs){
 
   let rows=[];
 
-  // 第1列：空白＋廟名＋服務人員名（帶顏色）
+  // 固定五位服務人員（不管有無資料都顯示）
+  const FIXED_STAFF=['葉宏乘','陳朋侑','蔡安俐','黃濰貞','陳妙沂'];
+
+  // 第1列：A1空白, B1~G1合併廟名, H1起服務人員
   let r1='<row r="1">';
   r1+=cell('',0,1,1);
   r1+=cell(templeTitle,1,1,2);
-  for(let c=3;c<=7;c++) r1+=cell('',0,1,c);
-  staffNames.forEach((s,i)=>{
-    r1+=cell(s, 4+i, 1, 8+i);
+  for(let c=3;c<=fixedCols;c++) r1+=cell('',0,1,c);
+  FIXED_STAFF.forEach((s,i)=>{
+    const sIdx=staffNames.indexOf(s);
+    const styleIdx= sIdx>=0 ? 4+sIdx : 3;
+    r1+=cell(s, styleIdx, 1, fixedCols+1+i);
   });
   r1+='</row>';
   rows.push(r1);
@@ -957,8 +965,8 @@ function _doExport(recs){
   // 資料列：只有信徒姓名欄上色，其他欄白底邊框
   recs.forEach((r,ri)=>{
     const rowNum=ri+3;
-    const sIdx=staffNames.indexOf(r.staffName||'');
-    const nameStyle= sIdx>=0 ? 4+sIdx : 3; // 姓名欄用顏色，找不到就白底
+    const sIdx=FIXED_STAFF.indexOf(r.staffName||'');
+    const nameStyle= sIdx>=0 ? 4+sIdx : 3;
 
     let rr=`<row r="${rowNum}">`;
     const base=[r.id||'',r.name||'',r.gender||'',r.zodiac||'',r.age||'',r.bazi||'',r.address||''];
@@ -971,17 +979,22 @@ function _doExport(recs){
     // 活動欄
     acts.forEach((a,i)=>{
       const idx=(r.activities||[]).indexOf(a.name);
-      if(idx===-1){rr+=cell('',3,rowNum,8+i);return;}
+      if(idx===-1){rr+=cell('',3,rowNum,fixedCols+1+i);return;}
       const d=((r.douInfo||[])[idx]||'').match(/x([0-9]+)斗/);
-      rr+=cell(d?d[1]:'1', 3, rowNum, 8+i);
+      rr+=cell(d?d[1]:'1', 3, rowNum, fixedCols+1+i);
     });
     rr+='</row>';
     rows.push(rr);
   });
 
+  // 合併 B1~G1 放廟名
+  const mergeEnd=colLetter(fixedCols)+'1'; // G1
   const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetData>${rows.join('')}</sheetData>
+<mergeCells count="1">
+  <mergeCell ref="B1:${mergeEnd}"/>
+</mergeCells>
 </worksheet>`;
 
   const files={
