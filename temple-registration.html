@@ -411,15 +411,14 @@ async function cloudLoad(){
 async function cloudSave(records){
   try{
     showSyncStatus('⏳ 儲存至雲端…');
-    const res=await fetch(GAS_URL,{
-      method:'POST',
-      redirect:'follow',
-      body:JSON.stringify({action:'save',records})
-    });
+    // 使用 no-cors mode 傳送資料
+    const payload=JSON.stringify({action:'save',records});
+    const url=GAS_URL+'?data='+encodeURIComponent(payload);
+    const res=await fetch(url,{redirect:'follow'});
     const text=await res.text();
     let data;
     try{ data=JSON.parse(text); }
-    catch(pe){ showSyncStatus('⚠ 回應格式錯誤'); return; }
+    catch(pe){ showSyncStatus('⚠ 回應格式錯誤:'+text.slice(0,50)); return; }
     if(data.ok){
       showSyncStatus('✅ 已儲存至雲端');
     }else{
@@ -434,7 +433,8 @@ async function uploadAllToCloud(){
   const recs=getRecords();
   if(!recs.length){showToast('尚無資料可上傳');return}
   const modal=document.getElementById('del-modal');
-  document.getElementById('del-modal-msg').textContent='確定將本機全部 '+recs.length+' 筆資料上傳到雲端？（雲端現有資料會先清除再重新寫入）';
+  document.getElementById('del-modal-msg').textContent='確定將本機全部 '+recs.length+' 筆資料上傳到雲端？雲端現有資料會先清除再重新寫入。';
+  document.querySelector('#del-modal .modal-title')&&(document.querySelector('#del-modal .modal-title').textContent='確認上傳');
   document.getElementById('del-modal-confirm').onclick=async function(){
     closeDelModal();
     showSyncStatus('⏳ 清除雲端舊資料…');
@@ -448,13 +448,15 @@ async function uploadAllToCloud(){
 
 async function cloudDelete(id){
   try{
-    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'delete',id})});
+    const url=GAS_URL+'?data='+encodeURIComponent(JSON.stringify({action:'delete',id}));
+    await fetch(url,{redirect:'follow'});
   }catch(e){console.error('cloud delete error',e);}
 }
 
 async function cloudClear(){
   try{
-    await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'clear'})});
+    const url=GAS_URL+'?data='+encodeURIComponent(JSON.stringify({action:'clear'}));
+    await fetch(url,{redirect:'follow'});
   }catch(e){console.error('cloud clear error',e);}
 }
 
@@ -921,7 +923,7 @@ function renderRecords(){
     <td>${r.zodiac||''}</td>
     <td style="font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis">${r.address||''}</td>
     <td style="font-size:11px;white-space:nowrap">${r.bazi||''}</td>
-    <td>${(r.douInfo||r.activities||[]).map(a=>`<span class="badge badge-red" style="margin-bottom:2px">${a}</span>`).join('')}</td>
+    <td style="max-width:200px"><div style="display:flex;flex-wrap:wrap;gap:3px">${(r.douInfo||r.activities||[]).map(a=>`<span class="badge badge-red">${a}</span>`).join('')}</div></td>
     <td style="color:var(--crimson);font-weight:600">$${(r.total||0).toLocaleString()}</td>
     <td><span class="badge badge-blue">${r.staffName||''}</span></td>
     <td style="font-size:11px;color:var(--smoke);white-space:nowrap">${r.createdAt||''}</td>
