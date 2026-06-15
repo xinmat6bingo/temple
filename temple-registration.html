@@ -861,7 +861,7 @@ function submitAll(){
         id, familyNo, batchId,
         staffName,
         name:m.name, gender:m.gender, zodiac:m.zodiac, age:m.age,
-        address:m.address, bazi:`${m.byear}年 ${m.bmonth}月 ${m.bday}日 ${m.bhour}`,
+        address:m.address, bazi:(m.bhour||'').replace(/\(.*?\)/g,'').replace(/\s/g,'').trim(),
         cal:m.cal,
         activities:actNames,
         total,
