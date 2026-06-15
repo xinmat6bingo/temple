@@ -189,7 +189,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="section-title">報名紀錄管理
       <div style="margin-left:auto;display:flex;gap:6px">
         <button onclick="cloudLoad()" style="background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
-        <button onclick="uploadAllToCloud()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 上傳全部</button>
+        <button onclick="uploadSelected()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 上傳雲端</button>
       </div>
     </div>
     <div id="sync-status" style="font-size:12px;color:var(--smoke);margin-bottom:8px;min-height:18px;letter-spacing:.5px"></div>
@@ -429,19 +429,18 @@ async function cloudSave(records){
   }
 }
 
-async function uploadAllToCloud(){
-  const recs=getRecords();
-  if(!recs.length){showToast('尚無資料可上傳');return}
+async function uploadSelected(){
+  const checked=Array.from(document.querySelectorAll('.rec-chk:checked')).map(c=>c.dataset.id);
+  if(!checked.length){showToast('⚠ 請先勾選要上傳的紀錄');return}
+  const recs=getRecords().filter(r=>checked.includes(r.id));
   const modal=document.getElementById('del-modal');
-  document.getElementById('del-modal-msg').textContent='確定將本機全部 '+recs.length+' 筆資料上傳到雲端？雲端現有資料會先清除再重新寫入。';
-  document.querySelector('#del-modal .modal-title')&&(document.querySelector('#del-modal .modal-title').textContent='確認上傳');
+  document.getElementById('del-modal-msg').textContent='確定將選取的 '+recs.length+' 筆資料上傳到雲端？';
+  document.getElementById('del-modal-confirm').textContent='確定上傳';
   document.getElementById('del-modal-confirm').onclick=async function(){
     closeDelModal();
-    showSyncStatus('⏳ 清除雲端舊資料…');
-    await cloudClear();
     showSyncStatus('⏳ 上傳 '+recs.length+' 筆資料…');
     await cloudSave(recs);
-    showSyncStatus('✅ 全部上傳完成（'+recs.length+'筆）');
+    showSyncStatus('✅ 上傳完成（'+recs.length+'筆）');
   };
   modal.style.display='flex';
 }
@@ -925,7 +924,13 @@ function renderRecords(){
     <td style="font-size:11px;white-space:nowrap">${r.bazi||''}</td>
     <td style="max-width:200px"><div style="display:flex;flex-wrap:wrap;gap:3px">${(r.douInfo||r.activities||[]).map(a=>`<span class="badge badge-red">${a}</span>`).join('')}</div></td>
     <td style="color:var(--crimson);font-weight:600">$${(r.total||0).toLocaleString()}</td>
-    <td><span class="badge badge-blue">${r.staffName||''}</span></td>
+    <td><span class="badge" style="background:${
+      {'葉宏乘':'rgba(0,112,192,.15)','陳朋侑':'rgba(0,176,80,.15)','蔡安俐':'rgba(255,146,208,.3)',
+       '黃濰貞':'rgba(112,48,160,.15)','陳妙沂':'rgba(166,166,166,.3)'}[r.staffName||'']||'rgba(201,146,42,.1)'
+    };color:${
+      {'葉宏乘':'#0070C0','陳朋侑':'#00B050','蔡安俐':'#C0006A',
+       '黃濰貞':'#7030A0','陳妙沂':'#666'}[r.staffName||'']||'var(--smoke)'
+    };font-weight:600">${r.staffName||''}</span></td>
     <td style="font-size:11px;color:var(--smoke);white-space:nowrap">${r.createdAt||''}</td>
     <td><button onclick="delRec('${r.id}')" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:#999">刪除</button></td>
   </tr>`).join('');
