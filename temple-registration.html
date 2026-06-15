@@ -187,7 +187,10 @@ textarea{resize:vertical;min-height:60px}
 <div id="panel-records" class="tab-panel">
   <div class="card">
     <div class="section-title">報名紀錄管理
-      <button onclick="cloudLoad()" style="margin-left:auto;background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button onclick="cloudLoad()" style="background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
+        <button onclick="uploadAllToCloud()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 上傳全部</button>
+      </div>
     </div>
     <div id="sync-status" style="font-size:12px;color:var(--smoke);margin-bottom:8px;min-height:18px;letter-spacing:.5px"></div>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -425,6 +428,22 @@ async function cloudSave(records){
   }catch(e){
     showSyncStatus('⚠ 網路錯誤：'+e.message);
   }
+}
+
+async function uploadAllToCloud(){
+  const recs=getRecords();
+  if(!recs.length){showToast('尚無資料可上傳');return}
+  const modal=document.getElementById('del-modal');
+  document.getElementById('del-modal-msg').textContent='確定將本機全部 '+recs.length+' 筆資料上傳到雲端？（雲端現有資料會先清除再重新寫入）';
+  document.getElementById('del-modal-confirm').onclick=async function(){
+    closeDelModal();
+    showSyncStatus('⏳ 清除雲端舊資料…');
+    await cloudClear();
+    showSyncStatus('⏳ 上傳 '+recs.length+' 筆資料…');
+    await cloudSave(recs);
+    showSyncStatus('✅ 全部上傳完成（'+recs.length+'筆）');
+  };
+  modal.style.display='flex';
 }
 
 async function cloudDelete(id){
