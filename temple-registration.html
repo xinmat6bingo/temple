@@ -304,6 +304,56 @@ textarea{resize:vertical;min-height:60px}
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 編輯報名資料 modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px">
+  <div style="background:var(--white);border-radius:8px;padding:28px;max-width:600px;width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--crimson);margin-bottom:18px;border-bottom:1px solid var(--parchment-dark);padding-bottom:10px">
+      ✏️ 編輯報名資料
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>編號</label><input type="text" id="edit-id" style="font-weight:700;color:var(--crimson)"></div>
+      <div class="field"><label>姓名</label><input type="text" id="edit-name"></div>
+      <div class="field"><label>性別</label>
+        <div class="radio-group" style="margin-top:4px">
+          <label><input type="radio" name="edit-gender" value="男"><span>男</span></label>
+          <label><input type="radio" name="edit-gender" value="女"><span>女</span></label>
+        </div>
+      </div>
+      <div class="field"><label>生肖</label>
+        <select id="edit-zodiac">
+          <option value="">請選擇</option>
+          <option>鼠</option><option>牛</option><option>虎</option><option>兔</option>
+          <option>龍</option><option>蛇</option><option>馬</option><option>羊</option>
+          <option>猴</option><option>雞</option><option>狗</option><option>豬</option>
+        </select>
+      </div>
+      <div class="field"><label>年齡</label><input type="text" id="edit-age"></div>
+      <div class="field span2"><label>吉宅住所</label><input type="text" id="edit-address"></div>
+      <div class="field"><label>出生年（民國）</label><input type="text" id="edit-byear" placeholder="例：60年"></div>
+      <div class="field"><label>出生月</label><input type="text" id="edit-bmonth" placeholder="正月"></div>
+      <div class="field"><label>出生日</label><input type="text" id="edit-bday" placeholder="初一"></div>
+      <div class="field"><label>出生時辰</label>
+        <select id="edit-bhour">
+          <option value="">請選擇</option>
+          <option>子時</option><option>丑時</option><option>寅時</option><option>卯時</option>
+          <option>辰時</option><option>巳時</option><option>午時</option><option>未時</option>
+          <option>申時</option><option>酉時</option><option>戌時</option><option>亥時</option>
+        </select>
+      </div>
+      <div class="field"><label>服務人員</label>
+        <select id="edit-staff">
+          <option value="">請選擇</option>
+        </select>
+      </div>
+    </div>
+    <div id="edit-rec-id" style="display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button onclick="closeEditModal()" style="background:transparent;border:1px solid var(--parchment-dark);border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--smoke)">取消</button>
+      <button onclick="saveEditRec()" style="background:var(--red-deep);color:var(--gold-light);border:none;border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 密碼驗證 modal -->
 <div id="pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--white);border-radius:8px;padding:32px 28px;max-width:320px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center">
@@ -932,7 +982,10 @@ function renderRecords(){
        '黃濰貞':'#7030A0','陳妙沂':'#666'}[r.staffName||'']||'var(--smoke)'
     };font-weight:600">${r.staffName||''}</span></td>
     <td style="font-size:11px;color:var(--smoke);white-space:nowrap">${r.createdAt||''}</td>
-    <td><button onclick="delRec('${r.id}')" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:#999">刪除</button></td>
+    <td style="display:flex;gap:4px">
+    <button onclick="editRec('${r.id}')" style="background:none;border:1px solid var(--gold);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--gold)">編輯</button>
+    <button onclick="delRec('${r.id}')" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:#999">刪除</button>
+  </td>
   </tr>`).join('');
 }
 
@@ -1500,6 +1553,77 @@ function changePassword(){
   ['old-pwd','new-pwd','new-pwd2'].forEach(id=>document.getElementById(id).value='');
   errEl.textContent='';
   showToast('✦ 密碼已更新');
+}
+
+// ======== 編輯紀錄 ========
+function editRec(id){
+  const recs=getRecords();
+  const r=recs.find(x=>x.id===id);
+  if(!r) return;
+
+  // Parse bazi back to parts
+  const baziStr=r.bazi||'';
+  const yearM=baziStr.match(/^(\d+)年/);
+  const monthM=baziStr.match(/年(.+?)月/);
+  const dayM=baziStr.match(/月(.+?)日/);
+  const hourM=baziStr.match(/日(.+)$/);
+
+  document.getElementById('edit-rec-id').textContent=id;
+  document.getElementById('edit-id').value=r.id||'';
+  document.getElementById('edit-name').value=r.name||'';
+  document.getElementById('edit-zodiac').value=r.zodiac||'';
+  document.getElementById('edit-age').value=r.age||'';
+  document.getElementById('edit-address').value=r.address||'';
+  document.getElementById('edit-byear').value=yearM?yearM[1]+'年':'';
+  document.getElementById('edit-bmonth').value=monthM?monthM[1]:'';
+  document.getElementById('edit-bday').value=dayM?dayM[1]:'';
+  document.getElementById('edit-bhour').value=hourM?hourM[1]:'';
+
+  // Gender
+  const gEl=document.querySelector(`input[name=edit-gender][value="${r.gender||''}"]`);
+  if(gEl) gEl.checked=true;
+
+  // Staff select
+  const staffSel=document.getElementById('edit-staff');
+  staffSel.innerHTML='<option value="">請選擇</option>';
+  getStaffList().forEach(s=>{
+    const opt=document.createElement('option');
+    opt.value=s; opt.textContent=s;
+    if(s===r.staffName) opt.selected=true;
+    staffSel.appendChild(opt);
+  });
+
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').style.display='none';
+}
+
+function saveEditRec(){
+  const oldId=document.getElementById('edit-rec-id').textContent;
+  const recs=getRecords();
+  const idx=recs.findIndex(r=>r.id===oldId);
+  if(idx===-1){showToast('找不到紀錄');return}
+
+  const byear=document.getElementById('edit-byear').value.trim();
+  const bmonth=document.getElementById('edit-bmonth').value.trim();
+  const bday=document.getElementById('edit-bday').value.trim();
+  const bhour=document.getElementById('edit-bhour').value;
+
+  recs[idx].id=document.getElementById('edit-id').value.trim()||oldId;
+  recs[idx].name=document.getElementById('edit-name').value.trim();
+  recs[idx].gender=document.querySelector('input[name=edit-gender]:checked')?.value||'';
+  recs[idx].zodiac=document.getElementById('edit-zodiac').value;
+  recs[idx].age=document.getElementById('edit-age').value;
+  recs[idx].address=document.getElementById('edit-address').value.trim();
+  recs[idx].bazi=`${byear}${bmonth}月${bday}日${bhour}`;
+  recs[idx].staffName=document.getElementById('edit-staff').value;
+
+  saveRecords(recs);
+  closeEditModal();
+  renderRecords();
+  showToast('✦ 已更新紀錄');
 }
 
 function showToast(msg){
