@@ -189,7 +189,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="section-title">報名紀錄管理
       <div style="margin-left:auto;display:flex;gap:6px">
         <button onclick="cloudLoad()" style="background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
-        <button onclick="uploadSelected()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 上傳雲端</button>
+        <button id="upload-btn" onclick="uploadCloud()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 全部上傳</button>
       </div>
     </div>
     <div id="sync-status" style="font-size:12px;color:var(--smoke);margin-bottom:8px;min-height:18px;letter-spacing:.5px"></div>
@@ -197,7 +197,14 @@ textarea{resize:vertical;min-height:60px}
       <input type="text" id="rec-q" placeholder="搜尋姓名…" style="flex:1;min-width:120px" oninput="renderRecords()">
       <input type="text" id="rec-staff-q" placeholder="搜尋服務人員…" style="flex:1;min-width:120px" oninput="renderRecords()">
       <input type="text" id="rec-family-q" placeholder="搜尋家庭編號…" style="width:130px" oninput="renderRecords()">
+      <select id="rec-delivery-filter" onchange="renderRecords()" style="border:1px solid var(--parchment-dark);border-radius:4px;padding:8px 10px;font-size:13px">
+        <option value="">全部寄送方式</option>
+        <option value="自取">自取</option>
+        <option value="超商">超商</option>
+        <option value="郵局">郵局</option>
+      </select>
       <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 匯出 Excel</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#FFA000;color:#FFA000" onclick="exportPostOffice()">📦 匯出郵局格式</button>
       <button class="btn btn-sm" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);color:var(--blue);border-radius:4px;cursor:pointer;padding:6px 14px;font-size:12px;letter-spacing:1px" onclick="mergeSelected()">🔗 合併選取為同一戶</button>
       <button class="btn btn-sm" style="background:transparent;border:1px solid #ccc;color:#888;border-radius:4px;cursor:pointer" onclick="clearAllRec()">🗑️ 清除全部</button>
     </div>
@@ -207,6 +214,7 @@ textarea{resize:vertical;min-height:60px}
           <th><input type="checkbox" onchange="toggleAllRec(this)" style="accent-color:var(--gold)"></th>
           <th>編號</th>
           <th>家庭編號</th>
+          <th>寄送</th>
           <th>姓名</th>
           <th>性別</th>
           <th>生肖</th>
@@ -279,6 +287,19 @@ textarea{resize:vertical;min-height:60px}
   </div>
 
   <div class="card">
+    <div class="section-title">📮 寄件人資訊設定（郵局匯出用）</div>
+    <p style="font-size:12px;color:var(--smoke);margin-bottom:12px">設定後在「匯出郵局格式」可直接選擇</p>
+    <div id="sender-editor" style="margin-bottom:12px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:8px;margin-bottom:8px">
+      <input type="text" id="new-sender-name" placeholder="寄件人姓名">
+      <input type="text" id="new-sender-phone" placeholder="電話">
+      <input type="text" id="new-sender-address" placeholder="地址">
+      <button class="btn btn-outline btn-sm" onclick="addSender()">＋ 新增</button>
+    </div>
+    <button class="btn btn-gold btn-sm" onclick="saveSenderList()">💾 儲存寄件人名單</button>
+  </div>
+
+  <div class="card">
     <div class="section-title">👤 服務人員名單管理</div>
     <p style="font-size:12px;color:var(--smoke);margin-bottom:12px">設定後在報名頁面可直接下拉選擇服務人員</p>
     <div id="staff-editor" style="margin-bottom:12px"></div>
@@ -303,6 +324,37 @@ textarea{resize:vertical;min-height:60px}
 
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- 選擇寄件人 modal -->
+<div id="sender-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--white);border-radius:8px;padding:28px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--crimson);margin-bottom:16px">
+      📮 選擇寄件人
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>選擇已存的寄件人</label>
+      <select id="sender-select" onchange="onSenderSelectChange(this.value)">
+        <option value="">— 自行輸入 —</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>寄件人姓名 <span class="req">*</span></label>
+      <input type="text" id="sender-name">
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>寄件人電話</label>
+      <input type="text" id="sender-phone">
+    </div>
+    <div class="field" style="margin-bottom:18px">
+      <label>寄件人地址</label>
+      <input type="text" id="sender-address">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeSenderModal()" style="background:transparent;border:1px solid var(--parchment-dark);border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--smoke)">取消</button>
+      <button onclick="confirmExportPostOffice()" style="background:#FFA000;color:#fff;border:none;border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600">📦 確認匯出</button>
+    </div>
+  </div>
+</div>
 
 <!-- 編輯報名資料 modal -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px">
@@ -329,9 +381,24 @@ textarea{resize:vertical;min-height:60px}
       </div>
       <div class="field"><label>年齡</label><input type="text" id="edit-age"></div>
       <div class="field span2"><label>吉宅住所</label><input type="text" id="edit-address"></div>
-      <div class="field"><label>出生年（民國）</label><input type="text" id="edit-byear" placeholder="例：60年"></div>
-      <div class="field"><label>出生月</label><input type="text" id="edit-bmonth" placeholder="正月"></div>
-      <div class="field"><label>出生日</label><input type="text" id="edit-bday" placeholder="初一"></div>
+      <div class="field"><label>出生年（民國）</label>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="edit-byear" placeholder="60" min="1" max="130" style="width:80px">
+          <span style="font-size:14px;color:var(--smoke)">年</span>
+        </div>
+      </div>
+      <div class="field"><label>出生月</label>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="edit-bmonth" placeholder="1" min="1" max="12" style="width:70px">
+          <span style="font-size:14px;color:var(--smoke)">月</span>
+        </div>
+      </div>
+      <div class="field"><label>出生日</label>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="edit-bday" placeholder="1" min="1" max="30" style="width:70px">
+          <span style="font-size:14px;color:var(--smoke)">日</span>
+        </div>
+      </div>
       <div class="field"><label>出生時辰</label>
         <select id="edit-bhour">
           <option value="">請選擇</option>
@@ -479,12 +546,16 @@ async function cloudSave(records){
   }
 }
 
-async function uploadSelected(){
+async function uploadCloud(){
   const checked=Array.from(document.querySelectorAll('.rec-chk:checked')).map(c=>c.dataset.id);
-  if(!checked.length){showToast('⚠ 請先勾選要上傳的紀錄');return}
-  const recs=getRecords().filter(r=>checked.includes(r.id));
+  const allRecs=getRecords();
+  const isSelected=checked.length>0;
+  const recs=isSelected?allRecs.filter(r=>checked.includes(r.id)):allRecs;
+  if(!recs.length){showToast('尚無資料可上傳');return}
   const modal=document.getElementById('del-modal');
-  document.getElementById('del-modal-msg').textContent='確定將選取的 '+recs.length+' 筆資料上傳到雲端？';
+  document.getElementById('del-modal-msg').textContent=isSelected
+    ?'確定將選取的 '+recs.length+' 筆資料上傳到雲端？'
+    :'確定將全部 '+recs.length+' 筆資料上傳到雲端？';
   document.getElementById('del-modal-confirm').textContent='確定上傳';
   document.getElementById('del-modal-confirm').onclick=async function(){
     closeDelModal();
@@ -548,6 +619,56 @@ function applyCfg(){
 
   renderStaffSelect();
   renderStaffEditor();
+}
+
+function getSenderList(){
+  try{
+    const s=localStorage.getItem('t_senders');
+    if(s) return JSON.parse(s);
+    return [{name:'天聖宮',phone:'',address:''}];
+  }catch{return [{name:'天聖宮',phone:'',address:''}]}
+}
+function saveSenderListData(s){localStorage.setItem('t_senders',JSON.stringify(s))}
+
+function renderSenderEditor(){
+  const el=document.getElementById('sender-editor');
+  if(!el) return;
+  const senders=getSenderList();
+  if(!senders.length){el.innerHTML='<p style="font-size:12px;color:var(--smoke)">尚無寄件人，請在下方新增</p>';return}
+  el.innerHTML=senders.map((s,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--parchment-dark);align-items:center">
+      <span style="font-size:13px">${s.name}</span>
+      <span style="font-size:12px;color:var(--smoke)">${s.phone||'-'}</span>
+      <span style="font-size:12px;color:var(--smoke)">${s.address||'-'}</span>
+      <button onclick="removeSender(${i})" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 10px;cursor:pointer;font-size:11px;color:#999">移除</button>
+    </div>`).join('');
+}
+
+function addSender(){
+  const name=document.getElementById('new-sender-name').value.trim();
+  const phone=document.getElementById('new-sender-phone').value.trim();
+  const address=document.getElementById('new-sender-address').value.trim();
+  if(!name){showToast('請輸入寄件人姓名');return}
+  const senders=getSenderList();
+  senders.push({name,phone,address});
+  saveSenderListData(senders);
+  document.getElementById('new-sender-name').value='';
+  document.getElementById('new-sender-phone').value='';
+  document.getElementById('new-sender-address').value='';
+  renderSenderEditor();
+  showToast('已新增：'+name);
+}
+
+function removeSender(i){
+  const senders=getSenderList();
+  senders.splice(i,1);
+  saveSenderListData(senders);
+  renderSenderEditor();
+}
+
+function saveSenderList(){
+  renderSenderEditor();
+  showToast('✦ 寄件人名單已儲存');
 }
 
 function getStaffList(){
@@ -635,7 +756,7 @@ function switchTab(name,btn){
     renderRecords();
     if(!_cloudLoaded) cloudLoad();
   }
-  if(name==='settings'){renderActEditor();applyCfg();loadNoCfgToUI();}
+  if(name==='settings'){renderActEditor();applyCfg();loadNoCfgToUI();renderSenderEditor();}
 }
 
 // ======== FAMILIES ========
@@ -663,7 +784,7 @@ function addBeliever(fid){
   const f=families.find(x=>x.fid===fid);
   if(!f) return;
   const bid='b'+(++belCount);
-  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',
+  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',phone:'',delivery:'自取',storeBrand:'',storeName:'',storeAddress:'',
     byear:'',bmonth:'',bday:'',bhour:'',cal:'農曆',actIds:[]});
   renderFamilies();
 }
@@ -784,9 +905,44 @@ function renderFamilies(){
             <div class="field"><label>年齡</label>
               <input type="number" value="${m.age}" placeholder="歲" min="1" max="120" oninput="updateBeliever('${f.fid}','${m.bid}','age',this.value)">
             </div>
-            <div class="field span2"><label>吉宅住所</label>
-              <input type="text" value="${m.address}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
+            <div class="field"><label>禮品寄送方式</label>
+              <div class="radio-group" style="margin-top:3px">
+                <label><input type="radio" name="delivery-${m.bid}" value="自取" ${(!m.delivery||m.delivery==='自取')?'checked':''}
+                  onchange="updateBeliever('${f.fid}','${m.bid}','delivery','自取');renderFamilies()"><span>自取</span></label>
+                <label><input type="radio" name="delivery-${m.bid}" value="超商" ${m.delivery==='超商'?'checked':''}
+                  onchange="updateBeliever('${f.fid}','${m.bid}','delivery','超商');renderFamilies()"><span>超商</span></label>
+                <label><input type="radio" name="delivery-${m.bid}" value="郵局" ${m.delivery==='郵局'?'checked':''}
+                  onchange="updateBeliever('${f.fid}','${m.bid}','delivery','郵局');renderFamilies()"><span>郵局</span></label>
+              </div>
             </div>
+            ${m.delivery==='郵局' ? `
+            <div class="field span2"><label>吉宅住所 <span class="req">*</span>（郵寄用）</label>
+              <input type="text" value="${m.address||''}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
+            </div>
+            <div class="field"><label>聯絡電話 <span class="req">*</span>（郵寄用）</label>
+              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
+            </div>
+            ` : ''}
+            ${m.delivery==='超商' ? `
+            <div class="field"><label>選擇超商 <span class="req">*</span></label>
+              <select onchange="updateBeliever('${f.fid}','${m.bid}','storeBrand',this.value)">
+                <option value="">請選擇</option>
+                <option ${m.storeBrand==='7-ELEVEN'?'selected':''}>7-ELEVEN</option>
+                <option ${m.storeBrand==='全家FamilyMart'?'selected':''}>全家FamilyMart</option>
+                <option ${m.storeBrand==='萊爾富'?'selected':''}>萊爾富</option>
+                <option ${m.storeBrand==='OK超商'?'selected':''}>OK超商</option>
+              </select>
+            </div>
+            <div class="field"><label>門市名稱 <span class="req">*</span></label>
+              <input type="text" value="${m.storeName||''}" placeholder="例：天聖門市" oninput="updateBeliever('${f.fid}','${m.bid}','storeName',this.value)">
+            </div>
+            <div class="field span2"><label>門市地址 <span class="req">*</span></label>
+              <input type="text" value="${m.storeAddress||''}" placeholder="門市完整地址" oninput="updateBeliever('${f.fid}','${m.bid}','storeAddress',this.value)">
+            </div>
+            <div class="field"><label>聯絡電話 <span class="req">*</span></label>
+              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
+            </div>
+            ` : ''}
 
           </div>
           <div class="divider" style="margin:10px 0">生辰八字</div>
@@ -921,9 +1077,11 @@ function submitAll(){
   });
 
   saveRecords(recs);
-  // 只上傳這批新增的紀錄
   const newRecs=recs.filter(r=>r.batchId===batchId);
-  cloudSave(newRecs);
+  // 自動上傳到雲端
+  cloudSave(newRecs).then(()=>{
+    showSyncStatus('✅ 已自動同步至雲端');
+  });
   showToast(`✦ 報名成功！共 ${newRecs.length} 筆　合計：$${batchTotal.toLocaleString()}`);
   families=[];famCount=0;belCount=0;
   document.getElementById('f-notes').value='';
@@ -948,10 +1106,12 @@ function renderRecords(){
   const q=(document.getElementById('rec-q')?.value||'').toLowerCase();
   const sq=(document.getElementById('rec-staff-q')?.value||'').toLowerCase();
   const fq=(document.getElementById('rec-family-q')?.value||'').toLowerCase();
+  const dq=document.getElementById('rec-delivery-filter')?.value||'';
   let recs=getRecords().filter(r=>{
     if(q && !r.name.toLowerCase().includes(q)) return false;
     if(sq && !(r.staffName||'').toLowerCase().includes(sq)) return false;
     if(fq && !(r.familyNo||'').toLowerCase().includes(fq)) return false;
+    if(dq && (r.delivery||'自取')!==dq) return false;
     return true;
   });
   // 依編號排序（數字優先，非數字字串按字母）
@@ -963,10 +1123,14 @@ function renderRecords(){
   });
   const tb=document.getElementById('rec-body');
   if(!recs.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--smoke);padding:22px">尚無報名紀錄</td></tr>';return}
-  tb.innerHTML=recs.map(r=>`<tr id="recrow-${r.id}">
-    <td><input type="checkbox" class="rec-chk" data-id="${r.id}" style="accent-color:var(--crimson);width:14px;height:14px"></td>
+  tb.innerHTML=recs.map(r=>{
+    const delIcon={'自取':'🏠','超商':'🏪','郵局':'📮'}[r.delivery||'自取']||'🏠';
+    const delColor={'自取':'#888','超商':'#E67E22','郵局':'#FFA000'}[r.delivery||'自取']||'#888';
+    return `<tr id="recrow-${r.id}">
+    <td><input type="checkbox" class="rec-chk" data-id="${r.id}" style="accent-color:var(--crimson);width:14px;height:14px" onchange="updateUploadBtn()"></td>
     <td><strong style="color:var(--crimson);font-size:13px;letter-spacing:1px">${r.id}</strong></td>
     <td><span class="badge badge-gold">${r.familyNo||'-'}</span></td>
+    <td><span style="font-size:12px;color:${delColor};font-weight:600">${delIcon} ${r.delivery||'自取'}</span></td>
     <td><strong>${r.name}</strong></td>
     <td>${r.gender||''}</td>
     <td>${r.zodiac||''}</td>
@@ -986,7 +1150,8 @@ function renderRecords(){
     <button onclick="editRec('${r.id}')" style="background:none;border:1px solid var(--gold);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--gold)">編輯</button>
     <button onclick="delRec('${r.id}')" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:#999">刪除</button>
   </td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 function delRec(id){
@@ -1022,6 +1187,12 @@ function clearAllRec(){
 
 function toggleAllRec(cb){
   document.querySelectorAll('.rec-chk').forEach(c=>c.checked=cb.checked);
+  updateUploadBtn();
+}
+function updateUploadBtn(){
+  const checked=document.querySelectorAll('.rec-chk:checked').length;
+  const btn=document.getElementById('upload-btn');
+  if(btn) btn.textContent=checked>0?`☁️ 上傳選取(${checked})`:'☁️ 全部上傳';
 }
 
 function mergeSelected(){
@@ -1047,6 +1218,94 @@ function mergeSelected(){
   saveRecords(recs);
   renderRecords();
   showToast(`✦ 已合併 ${checked.length} 筆為家庭：${finalNo}`);
+}
+
+let _pendingPostOfficeRecs=null;
+
+function exportPostOffice(){
+  const checked=Array.from(document.querySelectorAll('.rec-chk:checked')).map(c=>c.dataset.id);
+  const allRecs=getRecords();
+  let recs=checked.length>0 ? allRecs.filter(r=>checked.includes(r.id)) : allRecs;
+  // 只匯出寄送方式為「郵局」的資料
+  recs=recs.filter(r=>r.delivery==='郵局');
+  if(!recs.length){showToast('⚠ 沒有需要郵寄的資料（請確認寄送方式為「郵局」）');return}
+  _pendingPostOfficeRecs=recs;
+
+  // 填入寄件人選單
+  const sel=document.getElementById('sender-select');
+  sel.innerHTML='<option value="">— 自行輸入 —</option>';
+  getSenderList().forEach((s,i)=>{
+    const opt=document.createElement('option');
+    opt.value=i; opt.textContent=s.name+(s.phone?'（'+s.phone+'）':'');
+    sel.appendChild(opt);
+  });
+  // 預設選第一個
+  if(getSenderList().length){
+    sel.value='0';
+    onSenderSelectChange('0');
+  } else {
+    document.getElementById('sender-name').value='';
+    document.getElementById('sender-phone').value='';
+    document.getElementById('sender-address').value='';
+  }
+
+  document.getElementById('sender-modal').style.display='flex';
+}
+
+function onSenderSelectChange(val){
+  if(val===''){
+    document.getElementById('sender-name').value='';
+    document.getElementById('sender-phone').value='';
+    document.getElementById('sender-address').value='';
+    return;
+  }
+  const senders=getSenderList();
+  const s=senders[parseInt(val)];
+  if(s){
+    document.getElementById('sender-name').value=s.name||'';
+    document.getElementById('sender-phone').value=s.phone||'';
+    document.getElementById('sender-address').value=s.address||'';
+  }
+}
+
+function closeSenderModal(){
+  document.getElementById('sender-modal').style.display='none';
+  _pendingPostOfficeRecs=null;
+}
+
+function confirmExportPostOffice(){
+  const recs=_pendingPostOfficeRecs;
+  if(!recs){showToast('資料遺失，請重新操作');return}
+
+  const senderName=document.getElementById('sender-name').value.trim();
+  const senderPhone=document.getElementById('sender-phone').value.trim();
+  const senderAddress=document.getElementById('sender-address').value.trim();
+
+  if(!senderName){showToast('⚠ 請填寫寄件人姓名');return}
+
+  const hdr=['編號','收件人姓名','收件人電話','寄達地址類型','收件地址',
+    '寄件人合約編號','寄件人姓名','寄件人電話','寄件人地址','寄件人電子郵件信箱',
+    '內裝物品種類','內裝物品描述','總重量(kg)','包材','包裹總長(cm)',
+    '報值金額','未送達處理方式','內裝物品代碼','內裝物','未送達處理方式代碼',
+    '郵件寄達地址類型','收件人郵遞區號','寄件人郵遞區號','自備箱袋或選用便利箱','郵件種類'];
+
+  const rows=recs.map((r,i)=>[
+    i+1, r.name||'', r.phone||'', '一般地址', r.address||'',
+    '', senderName, senderPhone, senderAddress, '',
+    '其他', '平安符/疏文', '', '0.自備箱袋(信封)', '',
+    '', '退回寄件人(另付退回費)', 'B', '其他', '1',
+    '310', '', '', '001', '001'
+  ]);
+
+  const q=v=>'"'+(v||'').toString().replace(/"/g,'""')+'"';
+  const csv='\uFEFF'+[hdr,...rows].map(r=>r.map(q).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='郵局批次寄件_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.csv';
+  a.click();
+
+  closeSenderModal();
+  showToast('✦ 郵局格式已匯出（'+recs.length+'筆），請至 post.gov.tw 上傳');
 }
 
 function exportCSV(){
@@ -1503,7 +1762,7 @@ function convertToLunar(fid,bid){
 }
 
 // ======== 密碼管理 ========
-const DEFAULT_PWD = 'temple2025'; // 預設密碼
+const DEFAULT_PWD = '0000'; // 預設密碼
 
 function getPassword(){
   return localStorage.getItem('t_admin_pwd') || DEFAULT_PWD;
@@ -1574,9 +1833,9 @@ function editRec(id){
   document.getElementById('edit-zodiac').value=r.zodiac||'';
   document.getElementById('edit-age').value=r.age||'';
   document.getElementById('edit-address').value=r.address||'';
-  document.getElementById('edit-byear').value=yearM?yearM[1]+'年':'';
-  document.getElementById('edit-bmonth').value=monthM?monthM[1]:'';
-  document.getElementById('edit-bday').value=dayM?dayM[1]:'';
+  document.getElementById('edit-byear').value=yearM?yearM[1].replace(/[^0-9]/g,''):'';
+  document.getElementById('edit-bmonth').value=monthM?monthM[1].replace(/[^0-9]/g,''):'';
+  document.getElementById('edit-bday').value=dayM?dayM[1].replace(/[^0-9]/g,''):'';
   document.getElementById('edit-bhour').value=hourM?hourM[1]:'';
 
   // Gender
@@ -1617,13 +1876,17 @@ function saveEditRec(){
   recs[idx].zodiac=document.getElementById('edit-zodiac').value;
   recs[idx].age=document.getElementById('edit-age').value;
   recs[idx].address=document.getElementById('edit-address').value.trim();
-  recs[idx].bazi=`${byear}${bmonth}月${bday}日${bhour}`;
+  recs[idx].bazi=`${byear?byear+'年':''}${bmonth?bmonth+'月':''}${bday?bday+'日':''}${bhour}`;
   recs[idx].staffName=document.getElementById('edit-staff').value;
 
   saveRecords(recs);
   closeEditModal();
   renderRecords();
   showToast('✦ 已更新紀錄');
+  // 自動同步到雲端
+  cloudSave([recs[idx]]).then(()=>{
+    showSyncStatus('✅ 已自動同步至雲端');
+  });
 }
 
 function showToast(msg){
