@@ -412,6 +412,18 @@ textarea{resize:vertical;min-height:60px}
           <option value="">請選擇</option>
         </select>
       </div>
+      <div class="field"><label>寄送方式</label>
+        <div class="radio-group" style="margin-top:4px">
+          <label><input type="radio" name="edit-delivery" value="自取"><span>🏠 自取</span></label>
+          <label><input type="radio" name="edit-delivery" value="超商"><span>🏪 超商</span></label>
+          <label><input type="radio" name="edit-delivery" value="郵局"><span>📮 郵局</span></label>
+        </div>
+      </div>
+      <div class="field span2"><label>吉宅住所（戶籍）</label><input type="text" id="edit-address2"></div>
+      <div class="field span2"><label>郵寄地址（若與戶籍不同）</label><input type="text" id="edit-shippingAddress" placeholder="留空則使用戶籍地址"></div>
+      <div class="field"><label>聯絡電話</label><input type="text" id="edit-phone2"></div>
+      <div class="field"><label>超商門市名稱</label><input type="text" id="edit-storeName"></div>
+      <div class="field span2"><label>超商門市地址</label><input type="text" id="edit-storeAddress"></div>
     </div>
     <div id="edit-rec-id" style="display:none"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
@@ -784,7 +796,7 @@ function addBeliever(fid){
   const f=families.find(x=>x.fid===fid);
   if(!f) return;
   const bid='b'+(++belCount);
-  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',phone:'',delivery:'自取',storeBrand:'',storeName:'',storeAddress:'',
+  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',phone:'',delivery:'自取',storeBrand:'',storeName:'',storeAddress:'',shippingAddress:'',
     byear:'',bmonth:'',bday:'',bhour:'',cal:'農曆',actIds:[]});
   renderFamilies();
 }
@@ -915,11 +927,22 @@ function renderFamilies(){
                   onchange="updateBeliever('${f.fid}','${m.bid}','delivery','郵局');renderFamilies()"><span>郵局</span></label>
               </div>
             </div>
-            ${m.delivery==='郵局' ? `
-            <div class="field span2"><label>吉宅住所 <span class="req">*</span>（郵寄用）</label>
+            <div class="field span2"><label>吉宅住所</label>
               <input type="text" value="${m.address||''}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
             </div>
-            <div class="field"><label>聯絡電話 <span class="req">*</span>（郵寄用）</label>
+            ${m.delivery==='郵局' ? `
+            <div class="field span2" style="background:rgba(201,146,42,.06);border:1px solid var(--gold);border-radius:6px;padding:10px 14px">
+              <label style="color:var(--crimson);font-weight:600">📮 郵寄地址（若與戶籍不同請填寫）</label>
+              <input type="text" value="${m.shippingAddress||''}" placeholder="留空則使用上方戶籍地址" oninput="updateBeliever('${f.fid}','${m.bid}','shippingAddress',this.value)">
+            </div>
+            <div class="field">
+              <label>聯絡電話 <span class="req">*</span></label>
+              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
+            </div>
+            ` : ''}
+            ${m.delivery==='超商' ? `
+            <div class="field">
+              <label>聯絡電話 <span class="req">*</span></label>
               <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
             </div>
             ` : ''}
@@ -938,9 +961,6 @@ function renderFamilies(){
             </div>
             <div class="field span2"><label>門市地址 <span class="req">*</span></label>
               <input type="text" value="${m.storeAddress||''}" placeholder="門市完整地址" oninput="updateBeliever('${f.fid}','${m.bid}','storeAddress',this.value)">
-            </div>
-            <div class="field"><label>聯絡電話 <span class="req">*</span></label>
-              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
             </div>
             ` : ''}
 
@@ -1066,7 +1086,14 @@ function submitAll(){
         id, familyNo, batchId,
         staffName,
         name:m.name, gender:m.gender, zodiac:m.zodiac, age:m.age,
-        address:m.address, bazi:(m.bhour||'').replace(/\(.*?\)/g,'').replace(/\s/g,'').trim(),
+        address:m.address,
+        phone:m.phone||'',
+        delivery:m.delivery||'自取',
+        storeBrand:m.storeBrand||'',
+        storeName:m.storeName||'',
+        storeAddress:m.storeAddress||'',
+        shippingAddress:m.shippingAddress||'',
+        bazi:(m.bhour||'').split('(')[0].trim(),
         cal:m.cal,
         activities:actNames,
         total,
@@ -1290,7 +1317,7 @@ function confirmExportPostOffice(){
     '郵件寄達地址類型','收件人郵遞區號','寄件人郵遞區號','自備箱袋或選用便利箱','郵件種類'];
 
   const rows=recs.map((r,i)=>[
-    i+1, r.name||'', r.phone||'', '一般地址', r.address||'',
+    i+1, r.name||'', r.phone||'', '一般地址', (r.shippingAddress||r.address||''),
     '', senderName, senderPhone, senderAddress, '',
     '其他', '平安符/疏文', '', '0.自備箱袋(信封)', '',
     '', '退回寄件人(另付退回費)', 'B', '其他', '1',
@@ -1852,6 +1879,16 @@ function editRec(id){
     staffSel.appendChild(opt);
   });
 
+  // Delivery fields
+  const delVal=r.delivery||'自取';
+  const delEl=document.querySelector(`input[name=edit-delivery][value="${delVal}"]`);
+  if(delEl) delEl.checked=true;
+  const addr2=document.getElementById('edit-address2'); if(addr2) addr2.value=r.address||'';
+  const sa2=document.getElementById('edit-shippingAddress'); if(sa2) sa2.value=r.shippingAddress||'';
+  const ph2=document.getElementById('edit-phone2'); if(ph2) ph2.value=r.phone||'';
+  const sn=document.getElementById('edit-storeName'); if(sn) sn.value=r.storeName||'';
+  const sa=document.getElementById('edit-storeAddress'); if(sa) sa.value=r.storeAddress||'';
+
   document.getElementById('edit-modal').style.display='flex';
 }
 
@@ -1878,6 +1915,12 @@ function saveEditRec(){
   recs[idx].address=document.getElementById('edit-address').value.trim();
   recs[idx].bazi=`${byear?byear+'年':''}${bmonth?bmonth+'月':''}${bday?bday+'日':''}${bhour}`;
   recs[idx].staffName=document.getElementById('edit-staff').value;
+  recs[idx].delivery=document.querySelector('input[name=edit-delivery]:checked')?.value||'自取';
+  recs[idx].address=document.getElementById('edit-address2')?.value||recs[idx].address||'';
+  recs[idx].phone=document.getElementById('edit-phone2')?.value||recs[idx].phone||'';
+  recs[idx].storeName=document.getElementById('edit-storeName')?.value||'';
+  recs[idx].storeAddress=document.getElementById('edit-storeAddress')?.value||'';
+  recs[idx].shippingAddress=document.getElementById('edit-shippingAddress')?.value||'';
 
   saveRecords(recs);
   closeEditModal();
