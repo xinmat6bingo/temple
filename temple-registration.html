@@ -1505,6 +1505,12 @@ function _doExport(recs){
     if(!isNaN(num)&&v.trim()!=='') return `<c r="${addr}" s="${styleIdx}" t="n"><v>${num}</v></c>`;
     return `<c r="${addr}" s="${styleIdx}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
   }
+  function cell_text(val,styleIdx,row,col){
+    const addr=colLetter(col)+row;
+    const v=String(val||'');
+    if(!v.trim()) return `<c r="${addr}" s="${styleIdx}"/>`;
+    return `<c r="${addr}" s="${styleIdx}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
+  }
 
   let rows=[];
 
@@ -1562,7 +1568,7 @@ function _doExport(recs){
     // 寄送資料欄
     const colBase=fixedCols+1+acts.length+1;
     rr+=cell(r.delivery||'自取', 3, rowNum, colBase);
-    rr+=cell(r.phone||'', 3, rowNum, colBase+1);
+    rr+=cell_text(r.phone||'', 3, rowNum, colBase+1);
     rr+=cell(r.storeName||'', 3, rowNum, colBase+2);
     rr+=cell(r.storeAddress||'', 3, rowNum, colBase+3);
     rr+=cell(r.shippingAddress||r.address||'', 3, rowNum, colBase+4);
