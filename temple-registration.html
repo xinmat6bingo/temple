@@ -189,7 +189,6 @@ textarea{resize:vertical;min-height:60px}
     <div class="section-title">報名紀錄管理
       <div style="margin-left:auto;display:flex;gap:6px">
         <button onclick="cloudLoad()" style="background:rgba(45,122,58,.1);border:1px solid #2D7A3A;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:#2D7A3A;letter-spacing:1px">🔄 同步雲端</button>
-        <button onclick="debugStaff()" style="background:rgba(139,26,26,.1);border:1px solid var(--crimson);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--crimson)">🔍 檢查</button>
         <button id="upload-btn" onclick="uploadCloud()" style="background:rgba(26,74,139,.1);border:1px solid var(--blue);border-radius:4px;padding:4px 12px;cursor:pointer;font-size:11px;color:var(--blue);letter-spacing:1px">☁️ 全部上傳</button>
       </div>
     </div>
@@ -1453,8 +1452,8 @@ function _doExport(recs){
   r1+=cell(templeTitle,1,1,2);
   for(let c=3;c<=fixedCols;c++) r1+=cell('',0,1,c);
   FIXED_STAFF.forEach((s,i)=>{
-    const sIdx=staffNames.indexOf(s);
-    const styleIdx= sIdx>=0 ? 4+sIdx : 3;
+    // 固定用 FIXED_STAFF_FOR_STYLE 的順序對應顏色
+    const styleIdx= 4+i;
     r1+=cell(s, styleIdx, 1, fixedCols+1+i);
   });
   r1+='</row>';
@@ -1946,12 +1945,6 @@ function saveEditRec(){
   });
 }
 
-function debugStaff(){
-  const recs=getRecords();
-  if(!recs.length){alert('沒有資料');return}
-  const info=recs.slice(0,5).map(r=>`${r.name||'?'} -> staffName="${r.staffName||'(空)'}"`).join('\n');
-  alert('前5筆資料的服務人員：\n'+info);
-}
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3200);
