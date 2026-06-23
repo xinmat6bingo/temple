@@ -904,8 +904,8 @@ function renderFamilies(){
             </div>
             <div class="field"><label>性別</label>
               <div class="radio-group" style="margin-top:3px">
-                <label><input type="radio" name="gen-${m.bid}" value="男" ${m.gender==='男'?'checked':''} onchange="updateBeliever('${f.fid}','${m.bid}','gender','男')"><span>男</span></label>
-                <label><input type="radio" name="gen-${m.bid}" value="女" ${m.gender==='女'?'checked':''} onchange="updateBeliever('${f.fid}','${m.bid}','gender','女')"><span>女</span></label>
+                <label><input type="radio" name="gender-${m.bid}" value="男" ${m.gender==='男'?'checked':''} onchange="updateBeliever('${f.fid}','${m.bid}','gender','男')"><span>男</span></label>
+                <label><input type="radio" name="gender-${m.bid}" value="女" ${m.gender==='女'?'checked':''} onchange="updateBeliever('${f.fid}','${m.bid}','gender','女')"><span>女</span></label>
               </div>
             </div>
             <div class="field"><label>生肖</label>
@@ -915,9 +915,49 @@ function renderFamilies(){
               </select>
             </div>
             <div class="field"><label>年齡</label>
-              <input type="number" value="${m.age}" placeholder="歲" min="1" max="120" oninput="updateBeliever('${f.fid}','${m.bid}','age',this.value)">
+              <input type="text" value="${m.age}" placeholder="歲" oninput="updateBeliever('${f.fid}','${m.bid}','age',this.value)">
             </div>
-            <div class="field"><label>禮品寄送方式</label>
+            <div class="field span2"><label>吉宅住所</label>
+              <input type="text" value="${m.address||''}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
+            </div>
+          </div>
+
+          <div class="divider" style="margin:10px 0">生辰八字</div>
+          <div class="form-grid three">
+            <div class="field"><label>農曆出生年（民國）</label>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="byear-${m.bid}" value="${(m.byear||'').replace(/[^0-9]/g,'')}" placeholder="60" min="1" max="130"
+                  style="width:80px" oninput="updateBeliever('${f.fid}','${m.bid}','byear',this.value?this.value+'年':'')">
+                <span style="font-size:14px;color:var(--smoke)">年</span>
+              </div>
+            </div>
+            <div class="field"><label>農曆出生月</label>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="bmonth-${m.bid}" value="${(m.bmonth||'').replace(/[^0-9]/g,'')}" placeholder="1" min="1" max="12"
+                  style="width:70px" oninput="updateBeliever('${f.fid}','${m.bid}','bmonth',this.value?this.value+'月':'')">
+                <span style="font-size:14px;color:var(--smoke)">月</span>
+              </div>
+            </div>
+            <div class="field"><label>農曆出生日</label>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" id="bday-${m.bid}" value="${(m.bday||'').replace(/[^0-9]/g,'')}" placeholder="1" min="1" max="30"
+                  style="width:70px" oninput="updateBeliever('${f.fid}','${m.bid}','bday',this.value?this.value+'日':'')">
+                <span style="font-size:14px;color:var(--smoke)">日</span>
+              </div>
+            </div>
+            <div class="field"><label>出生時辰</label>
+              <select id="bhour-${m.bid}" onchange="updateBeliever('${f.fid}','${m.bid}','bhour',this.value)">
+                <option value="">請選擇</option>
+                ${['子時(23-01)','丑時(01-03)','寅時(03-05)','卯時(05-07)','辰時(07-09)','巳時(09-11)',
+                   '午時(11-13)','未時(13-15)','申時(15-17)','酉時(17-19)','戌時(19-21)','亥時(21-23)']
+                   .map(h=>`<option ${m.bhour===h?'selected':''}>${h}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="divider" style="margin:10px 0">禮品寄送</div>
+          <div class="form-grid">
+            <div class="field"><label>寄送方式</label>
               <div class="radio-group" style="margin-top:3px">
                 <label><input type="radio" name="delivery-${m.bid}" value="自取" ${(!m.delivery||m.delivery==='自取')?'checked':''}
                   onchange="updateBeliever('${f.fid}','${m.bid}','delivery','自取');renderFamilies()"><span>自取</span></label>
@@ -927,22 +967,12 @@ function renderFamilies(){
                   onchange="updateBeliever('${f.fid}','${m.bid}','delivery','郵局');renderFamilies()"><span>郵局</span></label>
               </div>
             </div>
-            <div class="field span2"><label>吉宅住所</label>
-              <input type="text" value="${m.address||''}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
-            </div>
             ${m.delivery==='郵局' ? `
             <div class="field span2" style="background:rgba(201,146,42,.06);border:1px solid var(--gold);border-radius:6px;padding:10px 14px">
               <label style="color:var(--crimson);font-weight:600">📮 郵寄地址（若與戶籍不同請填寫）</label>
               <input type="text" value="${m.shippingAddress||''}" placeholder="留空則使用上方戶籍地址" oninput="updateBeliever('${f.fid}','${m.bid}','shippingAddress',this.value)">
             </div>
-            <div class="field">
-              <label>聯絡電話 <span class="req">*</span></label>
-              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
-            </div>
-            ` : ''}
-            ${m.delivery==='超商' ? `
-            <div class="field">
-              <label>聯絡電話 <span class="req">*</span></label>
+            <div class="field"><label>聯絡電話 <span class="req">*</span></label>
               <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
             </div>
             ` : ''}
@@ -962,29 +992,12 @@ function renderFamilies(){
             <div class="field span2"><label>門市地址 <span class="req">*</span></label>
               <input type="text" value="${m.storeAddress||''}" placeholder="門市完整地址" oninput="updateBeliever('${f.fid}','${m.bid}','storeAddress',this.value)">
             </div>
+            <div class="field"><label>聯絡電話 <span class="req">*</span></label>
+              <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
+            </div>
             ` : ''}
+          </div>
 
-          </div>
-          <div class="divider" style="margin:10px 0">生辰八字</div>
-          <div class="form-grid three">
-            <div class="field"><label>農曆出生年（民國）</label>
-              <input type="text" id="byear-${m.bid}" value="${m.byear}" placeholder="例：60年" oninput="updateBeliever('${f.fid}','${m.bid}','byear',this.value)">
-            </div>
-            <div class="field"><label>農曆出生月</label>
-              <input type="text" id="bmonth-${m.bid}" value="${m.bmonth}" placeholder="正月/閏正月" oninput="updateBeliever('${f.fid}','${m.bid}','bmonth',this.value)">
-            </div>
-            <div class="field"><label>農曆出生日</label>
-              <input type="text" id="bday-${m.bid}" value="${m.bday}" placeholder="初一/十五" oninput="updateBeliever('${f.fid}','${m.bid}','bday',this.value)">
-            </div>
-            <div class="field"><label>出生時辰</label>
-              <select id="bhour-${m.bid}" onchange="updateBeliever('${f.fid}','${m.bid}','bhour',this.value)">
-                <option value="">請選擇</option>
-                ${['子時(23-01)','丑時(01-03)','寅時(03-05)','卯時(05-07)','辰時(07-09)','巳時(09-11)',
-                   '午時(11-13)','未時(13-15)','申時(15-17)','酉時(17-19)','戌時(19-21)','亥時(21-23)']
-                   .map(h=>`<option ${m.bhour===h?'selected':''}>${h}</option>`).join('')}
-              </select>
-            </div>
-          </div>
           <div class="divider" style="margin:10px 0">勾選活動</div>
           <div style="overflow-x:auto">
             <table class="act-table">
