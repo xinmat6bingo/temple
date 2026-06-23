@@ -426,9 +426,16 @@ textarea{resize:vertical;min-height:60px}
       <div class="field span2"><label>超商門市地址</label><input type="text" id="edit-storeAddress"></div>
     </div>
     <div id="edit-rec-id" style="display:none"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
-      <button onclick="closeEditModal()" style="background:transparent;border:1px solid var(--parchment-dark);border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--smoke)">取消</button>
-      <button onclick="saveEditRec()" style="background:var(--red-deep);color:var(--gold-light);border:none;border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600">💾 儲存</button>
+    <div style="margin-top:16px">
+      <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--crimson);margin-bottom:10px;border-top:1px solid var(--parchment-dark);padding-top:12px">活動項目</div>
+      <div id="edit-acts-container"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px">
+      <div style="font-size:14px;color:var(--smoke)">合計：<strong id="edit-total-display" style="color:var(--crimson);font-size:16px">$0</strong></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeEditModal()" style="background:transparent;border:1px solid var(--parchment-dark);border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;color:var(--smoke)">取消</button>
+        <button onclick="saveEditRec()" style="background:var(--red-deep);color:var(--gold-light);border:none;border-radius:4px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600">💾 儲存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1118,6 +1125,7 @@ function submitAll(){
         storeAddress:m.storeAddress||'',
         shippingAddress:m.shippingAddress||'',
         bazi:`${rocToGanzhi(m.byear)}${lunarMonthStr(m.bmonth)}${lunarDayStr(m.bday)}日${(m.bhour||'').split('(')[0].trim()}`,
+        byear:m.byear||'', bmonth:m.bmonth||'', bday:m.bday||'', bhour:(m.bhour||'').split('(')[0].trim(),
         cal:m.cal,
         activities:actNames,
         douInfo,
@@ -1871,16 +1879,96 @@ function changePassword(){
 }
 
 // ======== 編輯紀錄 ========
+function renderEditActs(activities, douInfo){
+  const acts=getActs();
+  const container=document.getElementById('edit-acts-container');
+  if(!container) return;
+
+  // Build current qty map from douInfo
+  const qtyMap={};
+  (douInfo||activities||[]).forEach(entry=>{
+    const m=entry.match(/^(.+?) x(\d+)斗$/);
+    if(m){ qtyMap[m[1]]=parseInt(m[2]); }
+    else { const name=entry.replace(/ x\d+斗$/,''); if(!qtyMap[name]) qtyMap[name]=1; }
+  });
+  const checkedActs=new Set((activities||[]).map(a=>a.replace(/ x\d+斗$/,'')));
+
+  container.innerHTML=acts.map(a=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--parchment-dark);flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;flex:1;min-width:160px;cursor:pointer">
+        <input type="checkbox" class="edit-act-chk" data-actid="${a.id}" data-actname="${a.name}"
+          ${checkedActs.has(a.name)?'checked':''}
+          style="accent-color:var(--crimson);width:15px;height:15px"
+          onchange="onEditActChange(this)">
+        <span style="font-size:13px">${a.name}</span>
+        <span style="font-size:12px;color:var(--smoke)">$${a.price.toLocaleString()}</span>
+      </label>
+      <div class="edit-dou-ctrl" data-actid="${a.id}" style="display:${checkedActs.has(a.name)?'flex':'none'};align-items:center;gap:6px">
+        <button onclick="editDouMinus('${a.id}')" style="width:26px;height:26px;border:1px solid var(--parchment-dark);border-radius:4px;background:var(--parchment);cursor:pointer;font-size:14px;color:var(--crimson)">－</button>
+        <span class="edit-dou-qty" data-actid="${a.id}" style="font-size:15px;font-weight:700;color:var(--crimson);min-width:20px;text-align:center">${qtyMap[a.name]||1}</span>
+        <button onclick="editDouPlus('${a.id}')" style="width:26px;height:26px;border:1px solid var(--parchment-dark);border-radius:4px;background:var(--parchment);cursor:pointer;font-size:14px;color:var(--crimson)">＋</button>
+        <span style="font-size:12px;color:var(--smoke)">斗　<strong style="color:var(--crimson)">$${((qtyMap[a.name]||1)*a.price).toLocaleString()}</strong></span>
+      </div>
+    </div>`).join('');
+  updateEditTotal();
+}
+
+function onEditActChange(cb){
+  const actId=cb.dataset.actid;
+  const ctrl=document.querySelector(`.edit-dou-ctrl[data-actid="${actId}"]`);
+  if(ctrl) ctrl.style.display=cb.checked?'flex':'none';
+  updateEditTotal();
+}
+
+function editDouMinus(actId){
+  const el=document.querySelector(`.edit-dou-qty[data-actid="${actId}"]`);
+  if(!el) return;
+  const cur=parseInt(el.textContent)||1;
+  if(cur>1){ el.textContent=cur-1; }
+  updateEditQtyLabel(actId);
+  updateEditTotal();
+}
+
+function editDouPlus(actId){
+  const el=document.querySelector(`.edit-dou-qty[data-actid="${actId}"]`);
+  if(!el) return;
+  el.textContent=(parseInt(el.textContent)||1)+1;
+  updateEditQtyLabel(actId);
+  updateEditTotal();
+}
+
+function updateEditQtyLabel(actId){
+  const acts=getActs();
+  const a=acts.find(x=>x.id===actId);
+  if(!a) return;
+  const qty=parseInt(document.querySelector(`.edit-dou-qty[data-actid="${actId}"]`)?.textContent)||1;
+  const ctrl=document.querySelector(`.edit-dou-ctrl[data-actid="${actId}"]`);
+  if(ctrl){
+    const label=ctrl.querySelector('strong');
+    if(label) label.textContent='$'+(qty*a.price).toLocaleString();
+  }
+}
+
+function updateEditTotal(){
+  const acts=getActs();
+  let total=0;
+  document.querySelectorAll('.edit-act-chk:checked').forEach(cb=>{
+    const a=acts.find(x=>x.id===cb.dataset.actid);
+    if(!a) return;
+    const qty=parseInt(document.querySelector(`.edit-dou-qty[data-actid="${a.id}"]`)?.textContent)||1;
+    total+=a.price*qty;
+  });
+  const el=document.getElementById('edit-total-display');
+  if(el) el.textContent='$'+total.toLocaleString();
+}
+
 function editRec(id){
   const recs=getRecords();
   const r=recs.find(x=>x.id===id);
   if(!r) return;
 
-  // Parse bazi back to parts
+  // Use stored byear/bmonth/bday if available, else parse from bazi
   const baziStr=r.bazi||'';
-  const yearM=baziStr.match(/^(\d+)年/);
-  const monthM=baziStr.match(/年(.+?)月/);
-  const dayM=baziStr.match(/月(.+?)日/);
   const hourM=baziStr.match(/日(.+)$/);
 
   document.getElementById('edit-rec-id').textContent=id;
@@ -1889,10 +1977,18 @@ function editRec(id){
   document.getElementById('edit-zodiac').value=r.zodiac||'';
   document.getElementById('edit-age').value=r.age||'';
   document.getElementById('edit-address').value=r.address||'';
-  document.getElementById('edit-byear').value=yearM?yearM[1].replace(/[^0-9]/g,''):'';
-  document.getElementById('edit-bmonth').value=monthM?monthM[1].replace(/[^0-9]/g,''):'';
-  document.getElementById('edit-bday').value=dayM?dayM[1].replace(/[^0-9]/g,''):'';
-  document.getElementById('edit-bhour').value=hourM?hourM[1]:'';
+  document.getElementById('edit-byear').value=(r.byear||'').replace(/[^0-9]/g,'');
+  document.getElementById('edit-bmonth').value=(r.bmonth||'').replace(/[^0-9]/g,'');
+  document.getElementById('edit-bday').value=(r.bday||'').replace(/[^0-9]/g,'');
+  // Set bhour - try stored bhour first, else parse from bazi
+  const hourVal=r.bhour||( hourM?hourM[1]:'' );
+  const bhourSel=document.getElementById('edit-bhour');
+  if(bhourSel){
+    // Find matching option
+    const opts=Array.from(bhourSel.options);
+    const matched=opts.find(o=>o.value.startsWith(hourVal.replace('時','')))||opts.find(o=>o.value.includes(hourVal));
+    bhourSel.value=matched?matched.value:(r.bhour||'');
+  }
 
   // Gender
   const gEl=document.querySelector(`input[name=edit-gender][value="${r.gender||''}"]`);
@@ -1918,6 +2014,8 @@ function editRec(id){
   const sn=document.getElementById('edit-storeName'); if(sn) sn.value=r.storeName||'';
   const sa=document.getElementById('edit-storeAddress'); if(sa) sa.value=r.storeAddress||'';
 
+  // Render activities
+  renderEditActs(r.activities||[], r.douInfo||[]);
   document.getElementById('edit-modal').style.display='flex';
 }
 
@@ -1945,6 +2043,25 @@ function saveEditRec(){
   recs[idx].bazi=`${rocToGanzhi(byear)}${lunarMonthStr(bmonth)}${lunarDayStr(bday)}日${(bhour||'').split('(')[0].trim()}`;
   recs[idx].staffName=document.getElementById('edit-staff').value;
   recs[idx].delivery=document.querySelector('input[name=edit-delivery]:checked')?.value||'自取';
+  // Save activities and douInfo from edit modal
+  const acts=getActs();
+  const newActNames=[];
+  const newDouInfo=[];
+  document.querySelectorAll('.edit-act-chk:checked').forEach(cb=>{
+    const a=acts.find(x=>x.id===cb.dataset.actid);
+    if(!a) return;
+    const qty=parseInt(document.querySelector(`.edit-dou-qty[data-actid="${a.id}"]`)?.textContent)||1;
+    newActNames.push(a.name);
+    newDouInfo.push(qty>1?`${a.name} x${qty}斗`:a.name);
+  });
+  recs[idx].activities=newActNames;
+  recs[idx].douInfo=newDouInfo;
+  recs[idx].total=acts.reduce((s,a)=>{
+    const cb=document.querySelector(`.edit-act-chk[data-actid="${a.id}"]`);
+    if(!cb||!cb.checked) return s;
+    const qty=parseInt(document.querySelector(`.edit-dou-qty[data-actid="${a.id}"]`)?.textContent)||1;
+    return s+a.price*qty;
+  },0);
   recs[idx].address=document.getElementById('edit-address2')?.value||recs[idx].address||'';
   recs[idx].phone=document.getElementById('edit-phone2')?.value||recs[idx].phone||'';
   recs[idx].storeName=document.getElementById('edit-storeName')?.value||'';
