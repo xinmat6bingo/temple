@@ -96,7 +96,7 @@ textarea{resize:vertical;min-height:60px}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--parchment-dark)}
 
 /* RECORDS */
-.records-table{width:100%;border-collapse:collapse;font-size:12px}
+.records-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
 .records-table th{background:var(--red-deep);color:var(--gold-light);padding:9px 10px;text-align:left;font-weight:600;letter-spacing:1px;font-size:12px}
 .records-table td{padding:7px 8px;border-bottom:1px solid var(--parchment-dark);vertical-align:middle;word-break:keep-all}
 .records-table tr:hover td{background:rgba(201,146,42,.04)}
@@ -212,9 +212,9 @@ textarea{resize:vertical;min-height:60px}
       <table class="records-table">
         <thead><tr>
           <th><input type="checkbox" onchange="toggleAllRec(this)" style="accent-color:var(--gold)"></th>
-          <th>編號</th>
-          <th>家庭編號</th>
-          <th>寄送</th>
+          <th style="min-width:50px">編號</th>
+          <th style="min-width:70px">家庭編號</th>
+          <th style="min-width:60px">寄送</th>
           <th>姓名</th>
           <th>性別</th>
           <th>生肖</th>
@@ -1250,7 +1250,15 @@ function renderRecords(){
       {'葉宏乘':'#0070C0','陳朋侑':'#00B050','蔡安俐':'#C0006A',
        '黃濰貞':'#7030A0','陳妙沂':'#666'}[r.staffName||'']||'var(--smoke)'
     };font-weight:600">${r.staffName||''}</span></td>
-    <td style="font-size:11px;color:var(--smoke);white-space:nowrap">${r.createdAt||''}</td>
+    <td style="font-size:11px;color:var(--smoke);white-space:nowrap">${
+      (()=>{
+        try{
+          const d=new Date(r.createdAt||'');
+          if(isNaN(d)) return r.createdAt||'';
+          return d.toLocaleDateString('zh-TW')+' '+d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+        }catch(e){return r.createdAt||'';}
+      })()
+    }</td>
     <td style="display:flex;gap:4px">
     <button onclick="editRec('${r.id}')" style="background:none;border:1px solid var(--gold);border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--gold)">編輯</button>
     <button onclick="delRec('${r.id}')" style="background:none;border:1px solid #ddd;border-radius:3px;padding:3px 7px;cursor:pointer;font-size:11px;color:#999">刪除</button>
