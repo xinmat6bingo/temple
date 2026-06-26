@@ -591,13 +591,13 @@ async function cloudLoad(){
   }
 }
 
-async function cloudSave(records){
+async function cloudSave(records, action='save'){
   try{
     showSyncStatus('⏳ 儲存至雲端…');
     // 分批上傳，每次1筆避免URL過長
     let saved=0;
     for(const r of records){
-      const payload=JSON.stringify({action:'save',records:[r]});
+      const payload=JSON.stringify({action,records:[r]});
       const url=GAS_URL+'?data='+encodeURIComponent(payload);
       const res=await fetch(url,{redirect:'follow'});
       const text=await res.text();
@@ -1218,14 +1218,15 @@ function clearAll(){
 function renderRecords(){
   const q=(document.getElementById('rec-q')?.value||'').toLowerCase();
   const staffSel=document.getElementById('rec-staff-select');
-  // Populate staff select
-  if(staffSel && staffSel.options.length<=1){
+  // Populate staff select（每次重新整理，確保即時同步）
+  if(staffSel){
+    const curVal=staffSel.value;
+    staffSel.innerHTML='<option value="">全部服務人員</option>';
     const allStaff=[...new Set(getRecords().map(r=>r.staffName||'').filter(Boolean))].sort();
     allStaff.forEach(s=>{
-      if([...staffSel.options].every(o=>o.value!==s)){
-        const opt=document.createElement('option'); opt.value=s; opt.textContent=s; staffSel.appendChild(opt);
-      }
+      const opt=document.createElement('option'); opt.value=s; opt.textContent=s; staffSel.appendChild(opt);
     });
+    if(curVal) staffSel.value=curVal;
   }
   const sq=staffSel?.value||'';
   const fq=(document.getElementById('rec-family-q')?.value||'').toLowerCase();
@@ -1443,13 +1444,18 @@ function confirmExportPostOffice(){
     '報值金額','未送達處理方式','內裝物品代碼','內裝物','未送達處理方式代碼',
     '郵件寄達地址類型','收件人郵遞區號','寄件人郵遞區號','自備箱袋或選用便利箱','郵件種類'];
 
-  const rows=recs.map((r,i)=>[
-    i+1, r.name||'', r.phone||'', '一般地址', (r.shippingAddress||r.address||''),
-    '', senderName, senderPhone, senderAddress, '',
-    '其他', '平安符/疏文', '', '0.自備箱袋(信封)', '',
-    '', '退回寄件人(另付退回費)', 'B', '其他', '1',
-    '310', '', '', '001', '001'
-  ]);
+  const rows=recs.map((r,i)=>{
+    // 寄件人電話保留開頭0
+    const spRaw=senderPhone.replace(/[^0-9]/g,'');
+    const spFull=spRaw.startsWith('0')?spRaw:'0'+spRaw;
+    return [
+      i+1, r.name||'', r.phone||'', '一般地址', (r.shippingAddress||r.address||''),
+      '', senderName, spFull, senderAddress, '',
+      '禮品', '', '6', '51.首次_bag1_一般便利袋:31×23×3(cm)', '57',
+      '', '退回寄件人(另付退回費)', 'B', '其他', '1',
+      '310', '', '', '001', '001'
+    ];
+  });
 
   const q=v=>'"'+(v||'').toString().replace(/"/g,'""')+'"';
   const csv='\uFEFF'+[hdr,...rows].map(r=>r.map(q).join(',')).join('\n');
