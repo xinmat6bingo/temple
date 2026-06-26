@@ -1548,10 +1548,22 @@ async function _fillPostTemplate(templateBytes, recs, senderName, senderPhone, s
     }
     if(!sheetRId){showToast('⚠ 找不到「託運清單(整段地址)」工作表');return}
 
-    // 從rels找對應檔案路徑
-    const relMatch=wbRels.match(new RegExp('Id="'+sheetRId+'"[^>]+Target="([^"]+)"'));
-    if(!relMatch){showToast('⚠ 找不到工作表檔案路徑');return}
-    const sheetPath='xl/'+relMatch[1];
+    // 從rels找對應檔案路徑（不依賴屬性順序，支援絕對/相對路徑）
+    let sheetTarget2='';
+    const relRe2=/<Relationship[^>]+>/g;
+    let relM2;
+    while((relM2=relRe2.exec(wbRels))!==null){
+      const tag=relM2[0];
+      if(tag.includes('Id="'+sheetRId+'"')){
+        const tM=tag.match(/Target="([^"]+)"/);
+        if(tM) sheetTarget2=tM[1];
+        break;
+      }
+    }
+    if(!sheetTarget2){showToast('⚠ 找不到工作表路徑(rId='+sheetRId+')');return}
+    // Target可能是相對路徑或絕對路徑
+    const sheetPath=sheetTarget2.startsWith('/')?sheetTarget2.slice(1):'xl/'+sheetTarget2;
+    console.log('sheetRId:',sheetRId,'sheetTarget2:',sheetTarget2,'sheetPath:',sheetPath);
 
     // 解析工作表xml
     let sheetXml=_xmlStr(files[sheetPath]);
