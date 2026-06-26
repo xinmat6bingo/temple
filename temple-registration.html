@@ -1535,7 +1535,7 @@ async function _doFillPostTemplate(recs,senderName,senderPhone,senderAddress){
     });
 
     files[sheetPath]=new TextEncoder().encode(sheetXml);
-    _rebuildZip(files,'郵局批次寄件_'+new Date().toLocaleDateString('zh-TW').replace(/\/\/g,'-')+'.xlsx');
+    _rebuildZip(files,'郵局批次寄件_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx');
     showToast('✦ 郵局格式已匯出（'+recs.length+'筆）');
   }catch(err){
     alert('匯出失敗：'+err.message+'\n'+err.stack);
