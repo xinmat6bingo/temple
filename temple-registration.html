@@ -526,7 +526,16 @@ function getRecords(){
       if(r.familyNo && /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s/.test(r.familyNo)){
         r.familyNo=''; dirty=true;
       }
-      // 修復2：douInfo 條目沒有斗數格式 → 補上 x1斗
+      // 修復2：shippingAddress 存到服務人員名字 → 清空
+      // 條件：shippingAddress 等於 staffName，或等於已知服務人員名字，或不含數字且少於5字（像人名）
+      const knownStaff=['葉宏乘','陳朋侑','蔡安俐','黃濰貞','陳妙沂'];
+      if(r.shippingAddress && (
+        r.shippingAddress===r.staffName ||
+        knownStaff.includes(r.shippingAddress)
+      )){
+        r.shippingAddress=''; dirty=true;
+      }
+      // 修復3：douInfo 條目沒有斗數格式 → 補上 x1斗
       if(Array.isArray(r.douInfo)){
         const fixed=r.douInfo.map(a=>{
           if(/x\d+斗$/.test(String(a))) return a;
