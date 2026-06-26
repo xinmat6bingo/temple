@@ -1461,10 +1461,13 @@ async function _doFillPostTemplate(recs,senderName,senderPhone,senderAddress){
     // 解壓縮zip
     const files=await _unzipAsync(bytes);
     if(!files){showToast('⚠ 無法解析範本');return}
+    console.log('zip檔案清單:', Object.keys(files));
 
     // 找工作表xml路徑（託運清單整段地址）
     const wbXml=_xmlStr(files['xl/workbook.xml']);
     const wbRels=_xmlStr(files['xl/_rels/workbook.xml.rels']);
+    console.log('wbXml前200:', wbXml.slice(0,200));
+    console.log('wbRels前200:', wbRels.slice(0,200));
     const sheetMatch=[...wbXml.matchAll(/<sheet[^>]+name="([^"]*整段地址[^"]*)"[^>]+r:id="([^"]+)"/g)];
     if(!sheetMatch.length){showToast('⚠ 找不到工作表');return}
     const sheetRId=sheetMatch[0][2];
