@@ -1452,32 +1452,55 @@ const _POST_TEMPLATE_B64='UEsDBBQAAAAIAMBB2lxGx01IlQAAAM0AAAAQAAAAZG9jUHJvcHMvYX
 
 async function _doFillPostTemplate(recs,senderName,senderPhone,senderAddress){
   try{
-    // 解碼範本
+    // 解碼嵌入的郵局範本
     const b64=_POST_TEMPLATE_B64;
     const bin=atob(b64);
     const bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
 
-    // 解壓縮zip
     const files=await _unzipAsync(bytes);
     if(!files){showToast('⚠ 無法解析範本');return}
-    console.log('zip檔案清單:', Object.keys(files));
 
-    // 找工作表xml路徑（託運清單整段地址）
     const wbXml=_xmlStr(files['xl/workbook.xml']);
     const wbRels=_xmlStr(files['xl/_rels/workbook.xml.rels']);
-    console.log('wbXml前200:', wbXml.slice(0,200));
-    console.log('wbRels前200:', wbRels.slice(0,200));
-    const sheetMatch=[...wbXml.matchAll(/<sheet[^>]+name="([^"]*整段地址[^"]*)"[^>]+r:id="([^"]+)"/g)];
-    if(!sheetMatch.length){showToast('⚠ 找不到工作表');return}
-    const sheetRId=sheetMatch[0][2];
-    const relMatch=wbRels.match(new RegExp('Id="'+sheetRId+'"[^>]+Target="([^"]+)"'));
-    if(!relMatch){showToast('⚠ 找不到工作表路徑');return}
-    const sheetPath='xl/'+relMatch[1];
+
+    // 找「託運清單(整段地址)」的rId（不依賴屬性順序）
+    let sheetRId='';
+    const sheetTagRe=/<sheet[^>]+>/g;
+    let stM;
+    while((stM=sheetTagRe.exec(wbXml))!==null){
+      const tag=stM[0];
+      if(tag.includes('整段地址')){
+        const ridM=tag.match(/r:id="([^"]+)"/);
+        if(ridM) sheetRId=ridM[1];
+        break;
+      }
+    }
+    if(!sheetRId){showToast('⚠ 找不到工作表');return}
+
+    // 從rels找Target路徑（不依賴屬性順序）
+    let sheetTarget='';
+    const relTagRe=/<Relationship[^>]+>/g;
+    let relM;
+    while((relM=relTagRe.exec(wbRels))!==null){
+      const tag=relM[0];
+      if(tag.includes('Id="'+sheetRId+'"')){
+        const tM=tag.match(/Target="([^"]+)"/);
+        if(tM) sheetTarget=tM[1];
+        break;
+      }
+    }
+    if(!sheetTarget){showToast('⚠ 找不到工作表路徑');return}
+
+    // 支援絕對路徑(/xl/...)和相對路徑(worksheets/...)
+    let sheetPath;
+    if(sheetTarget.startsWith('/')) sheetPath=sheetTarget.slice(1);
+    else if(sheetTarget.startsWith('xl/')) sheetPath=sheetTarget;
+    else sheetPath='xl/'+sheetTarget;
 
     let sheetXml=_xmlStr(files[sheetPath]);
+    if(!sheetXml){showToast('⚠ 找不到工作表內容：'+sheetPath);return}
 
-    // 產生資料列（第5列起）
     function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     function colLetter(n){let s='';while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-1)/26);}return s;}
     function cellN(v,r,c){return `<c r="${colLetter(c)+r}" t="n"><v>${v}</v></c>`;}
@@ -1490,8 +1513,6 @@ async function _doFillPostTemplate(recs,senderName,senderPhone,senderAddress){
       const row=5+i;
       const addr=r.shippingAddress||r.address||'';
       return `<row r="${row}">`+
-        // A欄編號保留原本公式
-        `<c r="A${row}" t="str"><v>${esc(`=IF(NOT(COUNTA(B${row}:H${row})),"",ROW()-4)`)}</v></c>`+
         cellS(r.name,row,2)+
         cellS(r.phone,row,3)+
         cellS('一般地址',row,4)+
@@ -1507,21 +1528,20 @@ async function _doFillPostTemplate(recs,senderName,senderPhone,senderAddress){
         `</row>`;
     }).join('');
 
-    // 取出第1~4列，清除第5列以後，插入新資料
+    // 保留第1~4列，清除第5列以後，插入新資料
     sheetXml=sheetXml.replace(/(<sheetData>)([\s\S]*?)(<\/sheetData>)/,(match,open,inner,close)=>{
       const kept=[...inner.matchAll(/<row r="([1-4])"[\s\S]*?<\/row>/g)].map(m=>m[0]).join('');
       return open+kept+newRows+close;
     });
 
     files[sheetPath]=new TextEncoder().encode(sheetXml);
-    _rebuildZip(files,'郵局批次寄件_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx');
+    _rebuildZip(files,'郵局批次寄件_'+new Date().toLocaleDateString('zh-TW').replace(/\/\/g,'-')+'.xlsx');
     showToast('✦ 郵局格式已匯出（'+recs.length+'筆）');
   }catch(err){
     alert('匯出失敗：'+err.message+'\n'+err.stack);
     showToast('⚠ 匯出失敗');
   }
 }
-
 async function _fillPostTemplate(templateBytes, recs, senderName, senderPhone, senderAddress, origFilename){
   try{
     // 解析zip結構
