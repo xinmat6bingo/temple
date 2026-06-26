@@ -517,7 +517,29 @@ function saveCfg(c){localStorage.setItem('t_cfg',JSON.stringify(c))}
 const GAS_URL='https://script.google.com/macros/s/AKfycbxrS8kHa4E2bFzxOrW_fZH48ROBr1gC_hrFx1ftFbhQXSxRT4AqikWyyFd4gkGI4wQs/exec';
 let _cloudLoaded=false;
 
-function getRecords(){try{return JSON.parse(localStorage.getItem('t_recs')||'[]')}catch{return []}}
+function getRecords(){
+  try{
+    const recs=JSON.parse(localStorage.getItem('t_recs')||'[]');
+    let dirty=false;
+    recs.forEach(r=>{
+      // 修復1：familyNo 存成時間字串 → 清空
+      if(r.familyNo && /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s/.test(r.familyNo)){
+        r.familyNo=''; dirty=true;
+      }
+      // 修復2：douInfo 條目沒有斗數格式 → 補上 x1斗
+      if(Array.isArray(r.douInfo)){
+        const fixed=r.douInfo.map(a=>{
+          if(/x\d+斗$/.test(String(a))) return a;
+          dirty=true;
+          return a+' x1斗';
+        });
+        r.douInfo=fixed;
+      }
+    });
+    if(dirty) localStorage.setItem('t_recs',JSON.stringify(recs));
+    return recs;
+  }catch{return []}
+}
 function saveRecords(r){localStorage.setItem('t_recs',JSON.stringify(r))}
 
 // ── 雲端同步 ──
@@ -535,14 +557,18 @@ async function cloudLoad(){
       // 重新計算金額
       const acts2=getActs();
       const fixedRecs=(data.records||[]).map(r=>{
+        // 修復 douInfo 沒有斗數格式的舊資料
+        const fixedDouInfo=(r.douInfo||[]).map(a=>
+          /x\d+斗$/.test(String(a)) ? a : a+' x1斗'
+        );
         const total=( r.activities||[] ).reduce((s,an,i)=>{
           const a=acts2.find(x=>x.name===an);
           if(!a) return s;
-          const di=(r.douInfo||[])[i]||an;
+          const di=fixedDouInfo[i]||an;
           const qm=String(di).match(/x([0-9]+)斗/);
           return s+a.price*(qm?parseInt(qm[1]):1);
         },0);
-        return Object.assign({},r,{total});
+        return Object.assign({},r,{douInfo:fixedDouInfo,total});
       });
       saveRecords(fixedRecs);
       _cloudLoaded=true;
@@ -1118,7 +1144,7 @@ function submitAll(){
         const act=acts.find(x=>x.name===an);
         if(!act) return an;
         const qty=(m.douMap||{})[act.id]||1;
-        return qty>1 ? `${an} x${qty}斗` : an;
+        return `${an} x${qty}斗`;
       });
       const total=m.actIds.reduce((s,aid)=>{
         const a=acts.find(x=>x.id===aid);
@@ -1240,8 +1266,8 @@ function renderRecords(){
     <td style="font-size:11px;white-space:nowrap">${r.bazi||''}</td>
     <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;min-width:180px;max-width:260px">${(r.douInfo||r.activities||[]).map(a=>{
       const match=a.match(/^(.+?) x(\d+)斗$/);
-      if(match) return `<span class="badge badge-red">${match[1]}<strong style="color:var(--crimson);margin-left:2px">x${match[2]}</strong></span>`;
-      return `<span class="badge badge-red">${a}</span>`;
+      if(match) return `<span class="badge badge-red">${match[1]}<strong style="color:var(--crimson);margin-left:2px">x${match[2]}斗</strong></span>`;
+      return `<span class="badge badge-red">${a}<strong style="color:var(--crimson);margin-left:2px">x1斗</strong></span>`;
     }).join('')}</div></td>
     <td style="color:var(--crimson);font-weight:600">$${(r.total||0).toLocaleString()}</td>
     <td><span class="badge" style="background:${
@@ -2125,7 +2151,7 @@ function saveEditRec(){
     if(!a) return;
     const qty=parseInt(document.querySelector(`.edit-dou-qty[data-actid="${a.id}"]`)?.textContent)||1;
     newActNames.push(a.name);
-    newDouInfo.push(qty>1?`${a.name} x${qty}斗`:a.name);
+    newDouInfo.push(`${a.name} x${qty}斗`);
   });
   recs[idx].activities=newActNames;
   recs[idx].douInfo=newDouInfo;
