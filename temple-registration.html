@@ -1531,9 +1531,19 @@ async function _fillPostTemplate(templateBytes, recs, senderName, senderPhone, s
     const wbRels=_xmlStr(files['xl/_rels/workbook.xml.rels']);
 
     // 從workbook.xml找sheet name和rId
-    const sheetMatch=[...wbXml.matchAll(/<sheet[^>]+name="([^"]*整段地址[^"]*)"[^>]+r:id="([^"]+)"/g)];
-    if(!sheetMatch.length){showToast('⚠ 找不到「託運清單(整段地址)」工作表');return}
-    const sheetRId=sheetMatch[0][2];
+    // 找工作表rId（不依賴屬性順序）
+    let sheetRId='';
+    const sheetTagRe=/<sheet[^>]+>/g;
+    let stM;
+    while((stM=sheetTagRe.exec(wbXml))!==null){
+      const tag=stM[0];
+      if(tag.includes('整段地址')){
+        const ridM=tag.match(/r:id="([^"]+)"/);
+        if(ridM) sheetRId=ridM[1];
+        break;
+      }
+    }
+    if(!sheetRId){showToast('⚠ 找不到「託運清單(整段地址)」工作表');return}
 
     // 從rels找對應檔案路徑
     const relMatch=wbRels.match(new RegExp('Id="'+sheetRId+'"[^>]+Target="([^"]+)"'));
