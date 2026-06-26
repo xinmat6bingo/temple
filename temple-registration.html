@@ -559,19 +559,20 @@ async function cloudLoad(){
 async function cloudSave(records){
   try{
     showSyncStatus('⏳ 儲存至雲端…');
-    // 使用 no-cors mode 傳送資料
-    const payload=JSON.stringify({action:'save',records});
-    const url=GAS_URL+'?data='+encodeURIComponent(payload);
-    const res=await fetch(url,{redirect:'follow'});
-    const text=await res.text();
-    let data;
-    try{ data=JSON.parse(text); }
-    catch(pe){ showSyncStatus('⚠ 回應格式錯誤:'+text.slice(0,50)); return; }
-    if(data.ok){
-      showSyncStatus('✅ 已儲存至雲端');
-    }else{
-      showSyncStatus('⚠ 儲存失敗：'+(data.error||'未知錯誤'));
+    // 分批上傳，每次1筆避免URL過長
+    let saved=0;
+    for(const r of records){
+      const payload=JSON.stringify({action:'save',records:[r]});
+      const url=GAS_URL+'?data='+encodeURIComponent(payload);
+      const res=await fetch(url,{redirect:'follow'});
+      const text=await res.text();
+      let data;
+      try{ data=JSON.parse(text); }
+      catch(pe){ showSyncStatus('⚠ 回應格式錯誤:'+text.slice(0,50)); continue; }
+      if(data.ok) saved++;
+      else showSyncStatus('⚠ 儲存失敗：'+(data.error||'未知錯誤'));
     }
+    showSyncStatus('✅ 已儲存至雲端（'+saved+'/'+records.length+'筆）');
   }catch(e){
     showSyncStatus('⚠ 網路錯誤：'+e.message);
   }
