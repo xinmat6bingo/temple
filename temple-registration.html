@@ -1265,7 +1265,13 @@ function renderRecords(){
     return `<tr id="recrow-${r.id}">
     <td><input type="checkbox" class="rec-chk" data-id="${r.id}" style="accent-color:var(--crimson);width:14px;height:14px" onchange="updateUploadBtn()"></td>
     <td style="position:sticky;left:30px;background:var(--parchment);text-align:center;z-index:1">
-      <button onclick="toggleRecMenu('${r.id}',event)" style="background:none;border:1px solid var(--parchment-dark);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--smoke)">⋯</button>
+      <div style="position:relative;display:inline-block">
+        <button onclick="toggleRecMenu('${r.id}',event)" style="background:none;border:1px solid var(--parchment-dark);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--smoke)">⋯</button>
+        <div id="rec-menu-${r.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--white);border:1px solid var(--parchment-dark);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999999;min-width:90px;overflow:hidden">
+          <button onclick="editRec('${r.id}');closeRecMenus()" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;border-bottom:1px solid var(--parchment);cursor:pointer;font-size:13px;color:var(--gold)">✏️ 編輯</button>
+          <button onclick="delRec('${r.id}');closeRecMenus()" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;cursor:pointer;font-size:13px;color:#e55">🗑 刪除</button>
+        </div>
+      </div>
     </td>
     <td><strong style="color:var(--crimson);font-size:13px;letter-spacing:1px">${r.id}</strong></td>
     <td><span class="badge badge-gold">${r.familyNo||'-'}</span></td>
@@ -1321,44 +1327,19 @@ function renderRecords(){
   }).join('');
 }
 
-let _recMenuBtn=null;
-function _updateRecMenuPos(){
-  const menu=document.getElementById('global-rec-menu');
-  if(!menu||menu.style.display==='none'||!_recMenuBtn) return;
-  const rect=_recMenuBtn.getBoundingClientRect();
-  // 按鈕滾出視窗就關閉
-  if(rect.bottom<0||rect.top>window.innerHeight){
-    closeRecMenus(); return;
-  }
-  const menuW=menu.offsetWidth||100;
-  const left=Math.min(rect.left,window.innerWidth-menuW-8);
-  menu.style.top=(rect.bottom+4)+'px';
-  menu.style.left=left+'px';
-}
 function toggleRecMenu(id,e){
   e.stopPropagation();
-  const menu=document.getElementById('global-rec-menu');
-  if(!menu) return;
-  if(menu.dataset.currentId===id && menu.style.display==='block'){
-    closeRecMenus(); return;
-  }
-  _recMenuBtn=e.currentTarget;
-  menu.dataset.currentId=id;
-  document.getElementById('global-menu-edit').onclick=function(){editRec(id);closeRecMenus();};
-  document.getElementById('global-menu-del').onclick=function(){delRec(id);closeRecMenus();};
-  menu.style.display='block';
-  _updateRecMenuPos();
+  closeRecMenus();
+  const menu=document.getElementById('rec-menu-'+id);
+  if(menu) menu.style.display=menu.style.display==='block'?'none':'block';
 }
 function closeRecMenus(){
-  const menu=document.getElementById('global-rec-menu');
-  if(menu){menu.style.display='none';menu.dataset.currentId='';}
-  _recMenuBtn=null;
+  document.querySelectorAll('[id^="rec-menu-"]').forEach(m=>m.style.display='none');
 }
 document.addEventListener('click',function(e){
-  const menu=document.getElementById('global-rec-menu');
-  if(menu && !menu.contains(e.target)) closeRecMenus();
+  if(!e.target.closest('[id^="rec-menu-"]')&&!e.target.closest('button[onclick*="toggleRecMenu"]'))
+    closeRecMenus();
 });
-document.addEventListener('scroll',_updateRecMenuPos,true);
 
 function deleteSelected(){
   const checked=[...document.querySelectorAll('.rec-chk:checked')].map(cb=>cb.dataset.id);
@@ -2666,10 +2647,6 @@ function showToast(msg){
 
 init();
 </script>
-  <!-- 全域操作選單（固定定位，不受表格影響）-->
-  <div id="global-rec-menu" style="display:none;position:fixed;background:var(--white);border:1px solid var(--parchment-dark);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999999;min-width:90px;overflow:hidden">
-    <button id="global-menu-edit" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;border-bottom:1px solid var(--parchment);cursor:pointer;font-size:13px;color:var(--gold)">✏️ 編輯</button>
-    <button id="global-menu-del" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;cursor:pointer;font-size:13px;color:#e55">🗑 刪除</button>
-  </div>
+
 </body>
 </html>
