@@ -924,7 +924,7 @@ function renderFamilies(){
               <option value="new" ${!f.joinNo?'selected':''}>🆕 新建一戶</option>
               <option value="join" ${f.joinNo?'selected':''}>🔗 加入現有家庭</option>
             </select>
-            ${f.joinNo!==undefined?`<input type="text" value="${f.joinNo||''}" placeholder="輸入家庭編號 例：B123456-F1"
+            ${f.joinNo!==undefined?`<input type="text" value="${f.joinNo||''}" placeholder="輸入家庭編號 例：F001"
               oninput="updateFamilyJoinNo('${f.fid}',this.value)"
               style="font-size:12px;padding:4px 8px;border:1px solid var(--gold);border-radius:4px;width:180px">`:``}
           </div>
@@ -1147,9 +1147,17 @@ function submitAll(){
   const now=new Date().toLocaleString('zh-TW');
   let batchTotal=0;
 
+  // 計算現有最大家庭編號（F001格式）
+  const existingNums=getRecords()
+    .map(r=>r.familyNo||'')
+    .filter(n=>/^F\d+$/.test(n))
+    .map(n=>parseInt(n.slice(1)));
+  let familyCounter=existingNums.length?Math.max(...existingNums):0;
+
   families.forEach((f,fi)=>{
-    // Use existing family number if joining, else create new
-    const familyNo = (f.joinNo && f.joinNo.trim()) ? f.joinNo.trim() : `${batchId}-F${fi+1}`;
+    // 加入現有家庭用輸入的編號，新建家庭自動產生F001格式
+    familyCounter++;
+    const familyNo = (f.joinNo && f.joinNo.trim()) ? f.joinNo.trim() : 'F'+String(familyCounter).padStart(3,'0');
     f.members.forEach(m=>{
       if(!m.name.trim()) return; // skip empty
       const id=m.bno&&m.bno.trim() ? m.bno.trim() : (batchId+'-'+String(fi+1)+String(f.members.indexOf(m)+1).padStart(2,'0'));
