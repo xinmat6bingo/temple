@@ -1321,36 +1321,44 @@ function renderRecords(){
   }).join('');
 }
 
-function toggleRecMenu(id,e){
-  e.stopPropagation();
+let _recMenuBtn=null;
+function _updateRecMenuPos(){
   const menu=document.getElementById('global-rec-menu');
-  if(!menu) return;
-  // 如果同一筆再按一次就關閉
-  if(menu.dataset.currentId===id && menu.style.display==='block'){
-    menu.style.display='none';
-    menu.dataset.currentId='';
-    return;
+  if(!menu||menu.style.display==='none'||!_recMenuBtn) return;
+  const rect=_recMenuBtn.getBoundingClientRect();
+  // 按鈕滾出視窗就關閉
+  if(rect.bottom<0||rect.top>window.innerHeight){
+    closeRecMenus(); return;
   }
-  menu.dataset.currentId=id;
-  document.getElementById('global-menu-edit').onclick=function(){editRec(id);menu.style.display='none';};
-  document.getElementById('global-menu-del').onclick=function(){delRec(id);menu.style.display='none';};
-  const btn=e.currentTarget;
-  const rect=btn.getBoundingClientRect();
-  menu.style.display='block';
-  // 確保不超出視窗右側
-  const menuW=100;
+  const menuW=menu.offsetWidth||100;
   const left=Math.min(rect.left,window.innerWidth-menuW-8);
   menu.style.top=(rect.bottom+4)+'px';
   menu.style.left=left+'px';
 }
+function toggleRecMenu(id,e){
+  e.stopPropagation();
+  const menu=document.getElementById('global-rec-menu');
+  if(!menu) return;
+  if(menu.dataset.currentId===id && menu.style.display==='block'){
+    closeRecMenus(); return;
+  }
+  _recMenuBtn=e.currentTarget;
+  menu.dataset.currentId=id;
+  document.getElementById('global-menu-edit').onclick=function(){editRec(id);closeRecMenus();};
+  document.getElementById('global-menu-del').onclick=function(){delRec(id);closeRecMenus();};
+  menu.style.display='block';
+  _updateRecMenuPos();
+}
 function closeRecMenus(){
   const menu=document.getElementById('global-rec-menu');
   if(menu){menu.style.display='none';menu.dataset.currentId='';}
+  _recMenuBtn=null;
 }
 document.addEventListener('click',function(e){
   const menu=document.getElementById('global-rec-menu');
   if(menu && !menu.contains(e.target)) closeRecMenus();
 });
+document.addEventListener('scroll',_updateRecMenuPos,true);
 
 function deleteSelected(){
   const checked=[...document.querySelectorAll('.rec-chk:checked')].map(cb=>cb.dataset.id);
