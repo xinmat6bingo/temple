@@ -423,7 +423,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="field"><label>出生時辰</label>
         <select id="edit-bhour">
           <option value="">請選擇</option>
-          <option>子時</option><option>丑時</option><option>寅時</option><option>卯時</option>
+          <option>子時</option><option>夜子時(23-00)</option><option>早子時(00-01)</option><option>丑時</option><option>寅時</option><option>卯時</option>
           <option>辰時</option><option>巳時</option><option>午時</option><option>未時</option>
           <option>申時</option><option>酉時</option><option>戌時</option><option>亥時</option>
         </select>
@@ -1052,7 +1052,7 @@ function renderFamilies(){
             <div class="field"><label>出生時辰</label>
               <select id="bhour-${m.bid}" onchange="updateBeliever('${f.fid}','${m.bid}','bhour',this.value)">
                 <option value="">請選擇</option>
-                ${['子時(23-01)','丑時(01-03)','寅時(03-05)','卯時(05-07)','辰時(07-09)','巳時(09-11)',
+                ${['子時(23-01)','夜子時(23-00)','早子時(00-01)','丑時(01-03)','寅時(03-05)','卯時(05-07)','辰時(07-09)','巳時(09-11)',
                    '午時(11-13)','未時(13-15)','申時(15-17)','酉時(17-19)','戌時(19-21)','亥時(21-23)']
                    .map(h=>`<option ${m.bhour===h?'selected':''}>${h}</option>`).join('')}
               </select>
@@ -2059,20 +2059,17 @@ function _doExport(recs){
   rows.push(r2);
 
   // 資料列：只有信徒姓名欄上色，其他欄白底邊框
-  recs.forEach((r,ri)=>{
-    const rowNum=ri+3;
+  let excelRow=3;
+  recs.forEach((r)=>{
+    const rowNum=excelRow++;
     const sIdx=FIXED_STAFF.indexOf(r.staffName||'');
     const nameStyle= sIdx>=0 ? 4+sIdx : 3;
 
     let rr=`<row r="${rowNum}">`;
     const base=[r.id||'',r.name||'',r.gender||'',r.zodiac||'',r.age||'',r.bazi||'',r.address||''];
-    // 編號欄：白底
     rr+=cell(base[0], 3, rowNum, 1);
-    // 姓名欄：服務人員顏色
     rr+=cell(base[1], nameStyle, rowNum, 2);
-    // 其他基本欄：白底
     for(let i=2;i<7;i++) rr+=cell(base[i], 3, rowNum, i+1);
-    // 活動欄
     let recTotal=0;
     acts.forEach((a,i)=>{
       const idx=(r.activities||[]).indexOf(a.name);
@@ -2082,9 +2079,7 @@ function _doExport(recs){
       recTotal+=a.price*qty;
       rr+=cell(qty, 3, rowNum, fixedCols+1+i);
     });
-    // 合計欄
     rr+=cell(recTotal, 3, rowNum, fixedCols+1+acts.length);
-    // 寄送資料欄
     const colBase=fixedCols+1+acts.length+1;
     rr+=cell(r.delivery||'自取', 3, rowNum, colBase);
     rr+=cell_text(r.phone||'', 3, rowNum, colBase+1);
@@ -2094,6 +2089,17 @@ function _doExport(recs){
     rr+=cell(r.notes||'', 3, rowNum, colBase+5);
     rr+='</row>';
     rows.push(rr);
+
+    // 地址2以後：另起一列，只填吉宅住所欄，其他空白
+    const addrs=r.addresses&&r.addresses.length?r.addresses:[r.address||''];
+    addrs.slice(1).forEach(addr=>{
+      if(!addr) return;
+      const addrRow=excelRow++;
+      let ar=`<row r="${addrRow}">`;
+      ar+=cell(addr, 3, addrRow, 7); // 吉宅住所在第7欄
+      ar+='</row>';
+      rows.push(ar);
+    });
   });
 
   // 合併 B1~G1 放廟名
