@@ -1181,9 +1181,13 @@ function updateFamilyJoinNo(fid, val){
 }
 
 // ======== SUBMIT ========
+let _submitting=false;
 function submitAll(){
+  if(_submitting){showToast('⚠ 正在送出，請勿重複點擊');return}
+  _submitting=true;
+  setTimeout(()=>_submitting=false, 5000);
   const staffName=document.getElementById('staff-name').value.trim();
-  if(!staffName){showToast('⚠ 請先填寫服務人員姓名');return}
+  if(!staffName){_submitting=false;showToast('⚠ 請先填寫服務人員姓名');return}
   let hasData=false;
   for(const f of families){
     for(const m of f.members){
@@ -2119,7 +2123,9 @@ function _doExport(recs){
       if(!addr) return;
       const addrRow=excelRow++;
       let ar=`<row r="${addrRow}">`;
-      ar+=cell(addr, 3, addrRow, 7); // G 吉宅住所
+      ar+=cell('', 3, addrRow, 1);              // A 編號（空白）
+      ar+=cell('', nameStyle, addrRow, 2);      // B 姓名欄套服務人員顏色
+      ar+=cell(addr, 3, addrRow, 7);            // G 吉宅住所
       ar+='</row>';
       rows.push(ar);
     });
