@@ -114,6 +114,23 @@ textarea{resize:vertical;min-height:60px}
 
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--red-deep);color:var(--gold-light);padding:13px 26px;border-radius:6px;font-size:14px;letter-spacing:1px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9999;transition:transform .3s}
 .toast.show{transform:translateX(-50%) translateY(0)}
+/* 備註tooltip */
+.name-cell { position: relative; }
+.notes-tooltip {
+  display: none;
+  position: fixed;
+  background: #333;
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  max-width: 220px;
+  white-space: pre-wrap;
+  z-index: 999999;
+  pointer-events: none;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
 </style>
 </head>
 <body>
@@ -384,7 +401,7 @@ textarea{resize:vertical;min-height:60px}
         </select>
       </div>
       <div class="field"><label>年齡</label><input type="text" id="edit-age"></div>
-      <div class="field span2"><label>吉宅住所</label><input type="text" id="edit-address"></div>
+      <div class="field span2"><label>吉宅住所</label><div id="edit-addresses-container" style="display:flex;flex-direction:column;gap:6px"></div><button type="button" onclick="addEditAddress()" style="font-size:12px;color:var(--gold);background:none;border:1px dashed var(--gold);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:4px">＋ 新增地址</button></div>
       <div class="field"><label>出生年（民國）</label>
         <div style="display:flex;align-items:center;gap:4px">
           <input type="number" id="edit-byear" placeholder="60" min="1" max="130" style="width:80px">
@@ -424,10 +441,19 @@ textarea{resize:vertical;min-height:60px}
         </div>
       </div>
       <div class="field span2"><label>吉宅住所（戶籍）</label><input type="text" id="edit-address2"></div>
-      <div class="field span2"><label>郵寄地址（若與戶籍不同）</label><input type="text" id="edit-shippingAddress" placeholder="留空則使用戶籍地址"></div>
+      <div class="field span2">
+        <label>郵寄地址</label>
+        <select id="edit-shipping-src" style="margin-bottom:6px" onchange="onEditShippingAddrSrc(this.value)">
+          <option value="addr0">地址1</option>
+          <option value="addr1">地址2</option>
+          <option value="custom">自行填寫</option>
+        </select>
+        <input type="text" id="edit-shippingAddress" placeholder="請輸入郵寄地址" style="display:none">
+      </div>
       <div class="field"><label>聯絡電話</label><input type="text" id="edit-phone2"></div>
       <div class="field"><label>超商門市名稱</label><input type="text" id="edit-storeName"></div>
       <div class="field span2"><label>超商門市地址</label><input type="text" id="edit-storeAddress"></div>
+      <div class="field span2"><label>備註</label><textarea id="edit-notes" style="width:100%;min-height:60px;padding:8px;border:1px solid var(--parchment-dark);border-radius:4px;font-size:13px;resize:vertical" placeholder="備註說明（選填）"></textarea></div>
     </div>
     <div id="edit-rec-id" style="display:none"></div>
     <div style="margin-top:16px">
@@ -855,7 +881,7 @@ function addBeliever(fid){
   const f=families.find(x=>x.fid===fid);
   if(!f) return;
   const bid='b'+(++belCount);
-  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',phone:'',delivery:'自取',storeBrand:'',storeName:'',storeAddress:'',shippingAddress:'',
+  f.members.push({bid,bno:'',name:'',gender:'',zodiac:'',age:'',address:'',addresses:[''],phone:'',delivery:'自取',storeBrand:'',storeName:'',storeAddress:'',shippingAddress:'',
     byear:'',bmonth:'',bday:'',bhour:'',cal:'農曆',actIds:[],douMap:{}});
   renderFamilies();
 }
@@ -981,8 +1007,22 @@ function renderFamilies(){
             <div class="field"><label>年齡</label>
               <input type="text" value="${m.age}" placeholder="歲" oninput="updateBeliever('${f.fid}','${m.bid}','age',this.value)">
             </div>
-            <div class="field span2"><label>吉宅住所</label>
-              <input type="text" value="${m.address||''}" placeholder="縣市/鄉鎮區/路街/門牌號" oninput="updateBeliever('${f.fid}','${m.bid}','address',this.value)">
+            <div class="field span2">
+              <label>吉宅住所</label>
+              <div id="addr-list-${f.fid}-${m.bid}">
+                ${(m.addresses||[m.address||'']).map((addr,ai)=>`
+                <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+                  <span style="font-size:11px;color:var(--smoke);min-width:40px">地址${ai+1}</span>
+                  <input type="text" value="${addr}" placeholder="縣市/鄉鎮區/路街/門牌號"
+                    style="flex:1" oninput="updateAddress('${f.fid}','${m.bid}',${ai},this.value)">
+                  ${ai>0?`<button type="button" onclick="removeAddress('${f.fid}','${m.bid}',${ai})"
+                    style="background:none;border:none;cursor:pointer;color:#e55;font-size:16px;padding:0 4px">×</button>`:''}
+                </div>`).join('')}
+              </div>
+              <button type="button" onclick="addAddress('${f.fid}','${m.bid}')"
+                style="font-size:12px;color:var(--gold);background:none;border:1px dashed var(--gold);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:2px">
+                ＋ 新增地址
+              </button>
             </div>
           </div>
 
@@ -1033,8 +1073,19 @@ function renderFamilies(){
             </div>
             ${m.delivery==='郵局' ? `
             <div class="field span2" style="background:rgba(201,146,42,.06);border:1px solid var(--gold);border-radius:6px;padding:10px 14px">
-              <label style="color:var(--crimson);font-weight:600">📮 郵寄地址（若與戶籍不同請填寫）</label>
-              <input type="text" value="${m.shippingAddress||''}" placeholder="留空則使用上方戶籍地址" oninput="updateBeliever('${f.fid}','${m.bid}','shippingAddress',this.value)">
+              <label style="color:var(--crimson);font-weight:600">📮 郵寄地址</label>
+              <select style="margin-bottom:6px" onchange="onShippingAddrSrc('${f.fid}','${m.bid}',this.value)">
+                ${(()=>{
+                  const addrs=m.addresses&&m.addresses.length?m.addresses:[m.address||''];
+                  const src=m.shippingAddrSrc||'addr0';
+                  const opts=addrs.map((a,i)=>`<option value="addr${i}" ${src==='addr'+i?'selected':''}>地址${i+1}：${a||'（未填）'}</option>`).join('');
+                  return opts+`<option value="custom" ${src==='custom'?'selected':''}>自行填寫</option>`;
+                })()}
+              </select>
+              ${(m.shippingAddrSrc==='custom') ? `
+              <input type="text" value="${m.shippingAddress||''}" placeholder="請輸入郵寄地址"
+                oninput="updateBeliever('${f.fid}','${m.bid}','shippingAddress',this.value)">
+              ` : ''}
             </div>
             <div class="field"><label>聯絡電話 <span class="req">*</span></label>
               <input type="text" value="${m.phone||''}" placeholder="手機或市話" oninput="updateBeliever('${f.fid}','${m.bid}','phone',this.value)">
@@ -1188,7 +1239,15 @@ function submitAll(){
         storeBrand:m.storeBrand||'',
         storeName:m.storeName||'',
         storeAddress:m.storeAddress||'',
-        shippingAddress:m.shippingAddress||'',
+        addresses:m.addresses||[m.address||''],
+        address:(m.addresses&&m.addresses[0])||m.address||'',
+        shippingAddrSrc:m.shippingAddrSrc||'addr0',
+        shippingAddress:(()=>{
+          if(!m.shippingAddrSrc||m.shippingAddrSrc==='custom') return m.shippingAddress||'';
+          const addrs=m.addresses&&m.addresses.length?m.addresses:[m.address||''];
+          const idx=parseInt((m.shippingAddrSrc||'addr0').replace('addr',''))||0;
+          return addrs[idx]||m.address||'';
+        })(),
         bazi:`${rocToGanzhi(m.byear)}${lunarMonthStr(m.bmonth)}${lunarDayStr(m.bday)}日${(m.bhour||'').split('(')[0].trim()}`,
         byear:m.byear||'', bmonth:m.bmonth||'', bday:m.bday||'', bhour:(m.bhour||'').split('(')[0].trim(),
         cal:m.cal,
@@ -1259,19 +1318,14 @@ function renderRecords(){
   });
   const tb=document.getElementById('rec-body');
   if(!recs.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--smoke);padding:22px">尚無報名紀錄</td></tr>';return}
-  tb.innerHTML=recs.map(r=>{
+  window._renderedRecs=recs; // 儲存目前顯示的排序，供index定位用
+  tb.innerHTML=recs.map((r,recIdx)=>{
     const delIcon={'自取':'🏠','超商':'🏪','郵局':'📮'}[r.delivery||'自取']||'🏠';
     const delColor={'自取':'#888','超商':'#E67E22','郵局':'#FFA000'}[r.delivery||'自取']||'#888';
     return `<tr id="recrow-${r.id}">
     <td><input type="checkbox" class="rec-chk" data-id="${r.id}" style="accent-color:var(--crimson);width:14px;height:14px" onchange="updateUploadBtn()"></td>
     <td style="position:sticky;left:30px;background:var(--parchment);text-align:center;z-index:1">
-      <div style="position:relative;display:inline-block">
-        <button onclick="toggleRecMenu('${r.id}',event)" style="background:none;border:1px solid var(--parchment-dark);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--smoke)">⋯</button>
-        <div id="rec-menu-${r.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--white);border:1px solid var(--parchment-dark);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999999;min-width:90px;overflow:hidden">
-          <button onclick="editRec('${r.id}');closeRecMenus()" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;border-bottom:1px solid var(--parchment);cursor:pointer;font-size:13px;color:var(--gold)">✏️ 編輯</button>
-          <button onclick="delRec('${r.id}');closeRecMenus()" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;cursor:pointer;font-size:13px;color:#e55">🗑 刪除</button>
-        </div>
-      </div>
+      <button data-recidx="${recIdx}" onclick="toggleRecMenu(${recIdx},this)" style="background:none;border:1px solid var(--parchment-dark);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--smoke)">⋯</button>
     </td>
     <td><strong style="color:var(--crimson);font-size:13px;letter-spacing:1px">${r.id}</strong></td>
     <td><span class="badge badge-gold">${r.familyNo||'-'}</span></td>
@@ -1295,16 +1349,35 @@ function renderRecords(){
         </div>`
       }
     </td>
-    <td><strong>${r.name}</strong></td>
+    <td><strong style="position:relative;cursor:default" class="name-cell" data-notes="${r.notes||''}">${r.name}${r.notes?'<span style="display:inline-block;width:6px;height:6px;background:var(--gold);border-radius:50%;vertical-align:top;margin-left:2px"></span>':''}</strong></td>
     <td>${r.gender||''}</td>
     <td>${r.zodiac||''}</td>
     <td style="font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis">${r.address||''}</td>
     <td style="font-size:11px;white-space:nowrap">${r.bazi||''}</td>
-    <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;min-width:180px;max-width:260px">${(r.douInfo||r.activities||[]).map(a=>{
-      const match=a.match(/^(.+?) x(\d+)斗$/);
-      if(match) return `<span class="badge badge-red">${match[1]}<strong style="color:var(--crimson);margin-left:2px">x${match[2]}斗</strong></span>`;
-      return `<span class="badge badge-red">${a}<strong style="color:var(--crimson);margin-left:2px">x1斗</strong></span>`;
-    }).join('')}</div></td>
+    <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;min-width:180px;max-width:260px">${(()=>{
+      // 依照原報名表活動順序排列
+      const actOrder=getActs().map(a=>a.name);
+      const items=(r.douInfo||r.activities||[]);
+      // 建立 活動名稱->douInfo字串 對應表
+      const map={};
+      items.forEach(a=>{
+        const m=a.match(/^(.+?) x(\d+)斗$/);
+        if(m) map[m[1]]=a; else map[a]=a;
+      });
+      // 按照報名表順序輸出
+      const sorted=actOrder.filter(n=>map[n]).map(n=>map[n]);
+      // 有不在actOrder裡的（舊資料）加到後面
+      items.forEach(a=>{
+        const m=a.match(/^(.+?) x(\d+)斗$/);
+        const name=m?m[1]:a;
+        if(!actOrder.includes(name)) sorted.push(a);
+      });
+      return sorted.map(a=>{
+        const match=a.match(/^(.+?) x(\d+)斗$/);
+        if(match) return `<span class="badge badge-red">${match[1]}<strong style="color:var(--crimson);margin-left:2px">x${match[2]}斗</strong></span>`;
+        return `<span class="badge badge-red">${a}<strong style="color:var(--crimson);margin-left:2px">x1斗</strong></span>`;
+      }).join('');
+    })()}</div></td>
     <td style="color:var(--crimson);font-weight:600">$${(r.total||0).toLocaleString()}</td>
     <td><span class="badge" style="background:${
       {'葉宏乘':'rgba(0,112,192,.15)','陳朋侑':'rgba(0,176,80,.15)','蔡安俐':'rgba(255,146,208,.3)',
@@ -1327,19 +1400,154 @@ function renderRecords(){
   }).join('');
 }
 
-function toggleRecMenu(id,e){
-  e.stopPropagation();
-  closeRecMenus();
-  const menu=document.getElementById('rec-menu-'+id);
-  if(menu) menu.style.display=menu.style.display==='block'?'none':'block';
+// 備註tooltip
+const _tooltip=document.createElement('div');
+_tooltip.className='notes-tooltip';
+document.body.appendChild(_tooltip);
+document.addEventListener('mouseover',function(e){
+  const cell=e.target.closest('.name-cell');
+  if(!cell) return;
+  const notes=cell.dataset.notes;
+  if(!notes) return;
+  _tooltip.textContent='📝 '+notes;
+  _tooltip.style.display='block';
+});
+document.addEventListener('mousemove',function(e){
+  if(_tooltip.style.display==='none') return;
+  _tooltip.style.top=(e.clientY+14)+'px';
+  _tooltip.style.left=Math.min(e.clientX+10,window.innerWidth-230)+'px';
+});
+document.addEventListener('mouseout',function(e){
+  if(e.target.closest('.name-cell')) _tooltip.style.display='none';
+});
+
+let _menuAnchorBtn=null;
+function _updateMenuPos(){
+  const menu=document.getElementById('g-rec-menu');
+  if(!menu||menu.style.display==='none'||!_menuAnchorBtn) return;
+  const rect=_menuAnchorBtn.getBoundingClientRect();
+  if(rect.bottom<0||rect.top>window.innerHeight){closeRecMenus();return;}
+  const mw=menu.offsetWidth||100;
+  menu.style.top=(rect.bottom+2)+'px';
+  menu.style.left=Math.min(rect.left,window.innerWidth-mw-4)+'px';
+}
+function toggleRecMenu(idx, btn){
+  const menu=document.getElementById('g-rec-menu');
+  if(!menu) return;
+  if(menu.style.display==='block' && menu.dataset.idx===String(idx)){
+    closeRecMenus(); return;
+  }
+  _menuAnchorBtn=btn;
+  menu.dataset.idx=String(idx);
+  document.getElementById('g-menu-edit').onclick=function(){editRecByIdx(idx);closeRecMenus();};
+  document.getElementById('g-menu-del').onclick=function(){delRecByIdx(idx);closeRecMenus();};
+  menu.style.display='block';
+  _updateMenuPos();
 }
 function closeRecMenus(){
-  document.querySelectorAll('[id^="rec-menu-"]').forEach(m=>m.style.display='none');
+  const menu=document.getElementById('g-rec-menu');
+  if(menu) menu.style.display='none';
+  _menuAnchorBtn=null;
 }
+document.addEventListener('scroll',_updateMenuPos,true);
 document.addEventListener('click',function(e){
-  if(!e.target.closest('[id^="rec-menu-"]')&&!e.target.closest('button[onclick*="toggleRecMenu"]'))
+  const menu=document.getElementById('g-rec-menu');
+  if(!menu) return;
+  if(!menu.contains(e.target) && !e.target.closest('button[data-recidx]'))
     closeRecMenus();
 });
+
+// 編輯modal地址輔助函數
+function _renderEditAddr(idx, val){
+  const con=document.getElementById('edit-addresses-container');
+  if(!con) return;
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center';
+  row.dataset.addrIdx=idx;
+  row.innerHTML=`
+    <span style="font-size:11px;color:var(--smoke);min-width:40px">地址${idx+1}</span>
+    <input class="edit-addr-input" type="text" value="${val||''}" placeholder="縣市/鄉鎮區/路街/門牌號"
+      style="flex:1;padding:6px 8px;border:1px solid var(--parchment-dark);border-radius:4px;font-size:13px">
+    ${idx>0?`<button type="button" onclick="removeEditAddress(this)" style="background:none;border:none;cursor:pointer;color:#e55;font-size:16px;padding:0 4px">×</button>`:''}
+  `;
+  con.appendChild(row);
+}
+function addEditAddress(){
+  const con=document.getElementById('edit-addresses-container');
+  if(!con) return;
+  _renderEditAddr(con.children.length,'');
+}
+function removeEditAddress(btn){
+  const row=btn.closest('div[data-addr-idx]');
+  if(row) row.remove();
+  // 重新編號
+  const con=document.getElementById('edit-addresses-container');
+  [...con.children].forEach((r,i)=>{
+    r.dataset.addrIdx=i;
+    const lbl=r.querySelector('span');
+    if(lbl) lbl.textContent='地址'+(i+1);
+  });
+}
+
+function onEditShippingAddrSrc(val){
+  const saInput=document.getElementById('edit-shippingAddress');
+  if(!saInput) return;
+  if(val==='custom'){
+    saInput.style.display='block';
+  } else {
+    saInput.style.display='none';
+    // 自動帶入對應地址（顯示用，儲存時再取）
+    const addrInputs=[...document.querySelectorAll('.edit-addr-input')];
+    const idx=parseInt(val.replace('addr',''))||0;
+    saInput.value=addrInputs[idx]?.value||'';
+  }
+}
+
+function onShippingAddrSrc(fid,bid,val){
+  const f=families.find(x=>x.fid===fid);
+  if(!f) return;
+  const m=f.members.find(x=>x.bid===bid);
+  if(!m) return;
+  m.shippingAddrSrc=val;
+  if(val!=='custom'){
+    // 自動填入對應地址
+    const addrs=m.addresses&&m.addresses.length?m.addresses:[m.address||''];
+    const idx=parseInt(val.replace('addr',''))||0;
+    m.shippingAddress=addrs[idx]||'';
+  } else {
+    m.shippingAddress='';
+  }
+  renderFamilies();
+}
+
+function addAddress(fid,bid){
+  const f=families.find(x=>x.fid===fid);
+  if(!f) return;
+  const m=f.members.find(x=>x.bid===bid);
+  if(!m) return;
+  if(!m.addresses) m.addresses=[m.address||''];
+  m.addresses.push('');
+  renderFamilies();
+}
+function removeAddress(fid,bid,idx){
+  const f=families.find(x=>x.fid===fid);
+  if(!f) return;
+  const m=f.members.find(x=>x.bid===bid);
+  if(!m||!m.addresses) return;
+  m.addresses.splice(idx,1);
+  if(m.addresses.length===0) m.addresses=[''];
+  m.address=m.addresses[0]||'';
+  renderFamilies();
+}
+function updateAddress(fid,bid,idx,val){
+  const f=families.find(x=>x.fid===fid);
+  if(!f) return;
+  const m=f.members.find(x=>x.bid===bid);
+  if(!m) return;
+  if(!m.addresses) m.addresses=[m.address||''];
+  m.addresses[idx]=val;
+  if(idx===0) m.address=val;
+}
 
 function deleteSelected(){
   const checked=[...document.querySelectorAll('.rec-chk:checked')].map(cb=>cb.dataset.id);
@@ -1356,9 +1564,9 @@ function deleteSelected(){
   showToast(`✦ 已刪除 ${checked.length} 筆紀錄`);
 }
 
-function delRec(id){
+function delRec(id, _r){
   const recs=getRecords();
-  const r=recs.find(x=>x.id===id);
+  const r=_r||recs.find(x=>x.id===id);
   if(!r) return;
   const modal=document.getElementById('del-modal');
   document.getElementById('del-modal-msg').textContent=`確定要刪除「${r.name}」的報名紀錄嗎？此操作無法復原。`;
@@ -1468,6 +1676,10 @@ function onSenderSelectChange(val){
     document.getElementById('sender-phone').value=s.phone||'';
     document.getElementById('sender-address').value=s.address||'';
   }
+}
+
+function onAddrSourceChange(val){
+  document.getElementById('addr-source-other').style.display=val==='other'?'block':'none';
 }
 
 function closeSenderModal(){
@@ -1840,7 +2052,7 @@ function _doExport(recs){
   // 第2列：欄位標題
   const hdrs=['編號','信徒姓名','性別','生肖','庚年','生辰八字','吉宅住所']
     .concat(acts.map((a,i)=>'('+String.fromCharCode(65+i)+')'+a.name))
-    .concat(['合計','寄送方式','電話','超商門市','門市地址','郵寄地址']);
+    .concat(['合計','寄送方式','電話','超商門市','門市地址','郵寄地址','備註']);
   let r2='<row r="2">';
   hdrs.forEach((h,i)=>{ r2+=cell(h,2,2,i+1); });
   r2+='</row>';
@@ -1879,6 +2091,7 @@ function _doExport(recs){
     rr+=cell(r.storeName||'', 3, rowNum, colBase+2);
     rr+=cell(r.storeAddress||'', 3, rowNum, colBase+3);
     rr+=cell(r.shippingAddress||r.address||'', 3, rowNum, colBase+4);
+    rr+=cell(r.notes||'', 3, rowNum, colBase+5);
     rr+='</row>';
     rows.push(rr);
   });
@@ -2484,9 +2697,21 @@ function updateEditTotal(){
   if(el) el.textContent='$'+total.toLocaleString();
 }
 
-function editRec(id){
+function editRecByIdx(idx){
+  const recs=window._renderedRecs||getRecords();
+  const r=recs[idx];
+  if(!r){showToast('⚠ 找不到資料');return}
+  editRec(r.id, r);
+}
+function delRecByIdx(idx){
+  const recs=window._renderedRecs||getRecords();
+  const r=recs[idx];
+  if(!r){showToast('⚠ 找不到資料');return}
+  delRec(r.id, r);
+}
+function editRec(id, _r){
   const recs=getRecords();
-  const r=recs.find(x=>x.id===id);
+  const r=_r||recs.find(x=>x.id===id);
   if(!r) return;
 
   // Use stored byear/bmonth/bday if available, else parse from bazi
@@ -2499,7 +2724,11 @@ function editRec(id){
   document.getElementById('edit-name').value=r.name||'';
   document.getElementById('edit-zodiac').value=r.zodiac||'';
   document.getElementById('edit-age').value=r.age||'';
-  document.getElementById('edit-address').value=r.address||'';
+  // 填入多地址
+  const editAddrs=r.addresses&&r.addresses.length?r.addresses:[r.address||''];
+  const addrCon=document.getElementById('edit-addresses-container');
+  addrCon.innerHTML='';
+  editAddrs.forEach((a,i)=>_renderEditAddr(i,a));
   document.getElementById('edit-byear').value=(r.byear||'').replace(/[^0-9]/g,'');
   document.getElementById('edit-bmonth').value=(r.bmonth||'').replace(/[^0-9]/g,'');
   document.getElementById('edit-bday').value=(r.bday||'').replace(/[^0-9]/g,'');
@@ -2532,7 +2761,23 @@ function editRec(id){
   const delEl=document.querySelector(`input[name=edit-delivery][value="${delVal}"]`);
   if(delEl) delEl.checked=true;
   const addr2=document.getElementById('edit-address2'); if(addr2) addr2.value=r.address||'';
-  const sa2=document.getElementById('edit-shippingAddress'); if(sa2) sa2.value=r.shippingAddress||'';
+  // 填入郵寄地址選擇
+  const addrs=r.addresses&&r.addresses.length?r.addresses:[r.address||''];
+  const srcSel=document.getElementById('edit-shipping-src');
+  const saInput=document.getElementById('edit-shippingAddress');
+  if(srcSel){
+    // 重建選項
+    srcSel.innerHTML=addrs.map((a,i)=>`<option value="addr${i}">地址${i+1}：${a||'（未填）'}</option>`).join('')
+      +'<option value="custom">自行填寫</option>';
+    // 判斷目前的shippingAddress對應哪個選項
+    const src=r.shippingAddrSrc||'addr0';
+    srcSel.value=src;
+    if(saInput){
+      saInput.style.display=src==='custom'?'block':'none';
+      saInput.value=r.shippingAddress||'';
+    }
+  }
+  const notesEl=document.getElementById('edit-notes'); if(notesEl) notesEl.value=r.notes||'';
   const ph2=document.getElementById('edit-phone2'); if(ph2) ph2.value=r.phone||'';
   const sn=document.getElementById('edit-storeName'); if(sn) sn.value=r.storeName||'';
   const sa=document.getElementById('edit-storeAddress'); if(sa) sa.value=r.storeAddress||'';
@@ -2563,7 +2808,9 @@ function saveEditRec(){
   recs[idx].gender=document.querySelector('input[name=edit-gender]:checked')?.value||'';
   recs[idx].zodiac=document.getElementById('edit-zodiac').value;
   recs[idx].age=document.getElementById('edit-age').value;
-  recs[idx].address=document.getElementById('edit-address').value.trim();
+  const addrInputs=[...document.querySelectorAll('.edit-addr-input')].map(i=>i.value.trim()).filter((_,i)=>i===0||_.length>0);
+  recs[idx].addresses=addrInputs.length?addrInputs:[''];
+  recs[idx].address=addrInputs[0]||'';
   recs[idx].bazi=`${rocToGanzhi(byear)}${lunarMonthStr(bmonth)}${lunarDayStr(bday)}日${(bhour||'').split('(')[0].trim()}`;
   recs[idx].staffName=document.getElementById('edit-staff').value;
   recs[idx].delivery=document.querySelector('input[name=edit-delivery]:checked')?.value||'自取';
@@ -2590,7 +2837,16 @@ function saveEditRec(){
   recs[idx].phone=document.getElementById('edit-phone2')?.value||recs[idx].phone||'';
   recs[idx].storeName=document.getElementById('edit-storeName')?.value||'';
   recs[idx].storeAddress=document.getElementById('edit-storeAddress')?.value||'';
-  recs[idx].shippingAddress=document.getElementById('edit-shippingAddress')?.value||'';
+  const editSrc=document.getElementById('edit-shipping-src')?.value||'addr0';
+  const editAddrsArr=[...document.querySelectorAll('.edit-addr-input')].map(i=>i.value.trim());
+  recs[idx].shippingAddrSrc=editSrc;
+  if(editSrc==='custom'){
+    recs[idx].shippingAddress=document.getElementById('edit-shippingAddress')?.value.trim()||'';
+  } else {
+    const addrIdx=parseInt(editSrc.replace('addr',''))||0;
+    recs[idx].shippingAddress=editAddrsArr[addrIdx]||recs[idx].address||'';
+  }
+  recs[idx].notes=document.getElementById('edit-notes')?.value.trim()||'';
 
   saveRecords(recs);
   closeEditModal();
@@ -2648,5 +2904,9 @@ function showToast(msg){
 init();
 </script>
 
+  <div id="g-rec-menu" style="display:none;position:fixed;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999999;min-width:90px;overflow:hidden">
+    <button id="g-menu-edit" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;border-bottom:1px solid #f0e8d8;cursor:pointer;font-size:13px;color:#b8860b">✏️ 編輯</button>
+    <button id="g-menu-del" style="display:block;width:100%;text-align:left;padding:10px 16px;background:none;border:none;cursor:pointer;font-size:13px;color:#e55">🗑 刪除</button>
+  </div>
 </body>
 </html>
